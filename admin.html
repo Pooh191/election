@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ศูนย์ควบคุมการเลือกตั้ง V3 - Smart Admin</title>
+    
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Icons & Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <style>
+        .sidebar {
+            width: 280px;
+            background: #ffffff;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            border-right: 1px solid var(--border);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+        }
+        .main-wrapper {
+            margin-left: 280px;
+            padding: 3rem;
+            min-height: 100vh;
+        }
+        .nav-link-custom {
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            transition: var(--transition);
+            margin-bottom: 0.5rem;
+            text-decoration: none;
+        }
+        .nav-link-custom:hover, .nav-link-custom.active {
+            background: var(--primary-soft);
+            color: var(--primary);
+        }
+        .nav-link-custom i {
+            margin-right: 1rem;
+            font-size: 1.25rem;
+        }
+    </style>
+</head>
+<body class="bg-main">
+
+    <!-- Auth V3 Master Login -->
+    <div id="authOverlay" class="auth-overlay">
+        <div class="login-card text-center" style="width: 440px;">
+            <div class="mb-4">
+                <div class="bg-primary-soft p-4 rounded-circle d-inline-flex">
+                    <i class="bi bi-person-lock fs-1 text-primary"></i>
+                </div>
+            </div>
+            <h2 class="fw-bold mb-1">ศูนย์ควบคุมแอดมิน</h2>
+            <p class="text-muted mb-4 small">กรุณาระบุรหัสผ่านเพื่อเข้าใช้งานระบบ</p>
+            <div class="mb-3 px-2">
+                <input type="password" id="adminPass" class="form-control form-control-lg border-2 text-center rounded-4 shadow-none" placeholder="••••••••" style="font-size:1.5rem; letter-spacing:8px;" onkeydown="if(event.key==='Enter') checkAuth()">
+            </div>
+            <button class="btn btn-primary-custom w-100 py-3 rounded-4 fw-bold mt-2" onclick="checkAuth()">
+                เข้าสู่ระบบ
+            </button>
+            <p id="authError" class="text-danger mt-3 fw-medium d-none">รหัสผ่านไม่ถูกต้อง</p>
+        </div>
+    </div>
+
+    <!-- Main Dashboard V3 -->
+    <div id="adminContent" class="d-none">
+        <div class="sidebar d-none d-lg-flex">
+            <div class="d-flex align-items-center mb-5">
+                <i class="bi bi-intersect text-primary fs-2 me-3"></i>
+                <h4 class="fw-bold mb-0">SmartAdmin</h4>
+            </div>
+            
+            <nav class="nav flex-column flex-grow-1">
+                <a href="#dashboard" class="nav-link-custom active" data-bs-toggle="pill" data-bs-target="#dashboard">
+                    <i class="bi bi-grid-fill"></i> แผงควบคุม
+                </a>
+                <a href="#voters" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#voters">
+                    <i class="bi bi-people-fill"></i> ผู้มีใช้สิทธิ
+                </a>
+                <a href="#candidates" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#candidates">
+                    <i class="bi bi-person-badge-fill"></i> ผู้สมัคร ส.ส.
+                </a>
+                <a href="#parties" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#parties">
+                    <i class="bi bi-flag-fill"></i> พรรคการเมือง
+                </a>
+                <div class="mt-auto">
+                    <a href="#settings" class="nav-link-custom text-danger" data-bs-toggle="pill" data-bs-target="#settings">
+                        <i class="bi bi-gear-fill"></i> ตั้งค่า
+                    </a>
+                    <button class="nav-link-custom border-0 bg-transparent w-100" onclick="logout()">
+                        <i class="bi bi-box-arrow-left"></i> ย้อนกลับ
+                    </button>
+                </div>
+            </nav>
+        </div>
+
+        <div class="main-wrapper">
+            <div class="tab-content">
+                
+                <!-- 📊 Dashboard Section -->
+                <div class="tab-pane fade show active" id="dashboard">
+                    <div class="d-flex justify-content-between align-items-center mb-5">
+                        <div>
+                            <h2 class="fw-bold text-bold mb-1">ภาพรวมผลการลงคะแนน</h2>
+                            <p class="text-muted mb-0 small">สรุปข้อมูลจาก Google Sheet Real-time</p>
+                        </div>
+                        <button class="btn btn-outline-custom" onclick="reloadData()">
+                            <i class="bi bi-arrow-repeat me-2"></i> รีเฟรชข้อมูล
+                        </button>
+                    </div>
+                    
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-4">
+                            <div class="metric-card">
+                                <div class="bg-primary-soft p-3 rounded-4 d-inline-flex mb-3"><i class="bi bi-mailbox text-primary fs-3"></i></div>
+                                <p class="small fw-bold text-muted mb-1">ลงคะแนนรวม</p>
+                                <h2 id="totalVotes" class="fw-bold mb-0">0</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="metric-card">
+                                <div class="bg-secondary p-3 rounded-4 d-inline-flex mb-3" style="--bs-bg-opacity:0.1"><i class="bi bi-person-check text-secondary fs-3"></i></div>
+                                <p class="small fw-bold text-muted mb-1">ผู้มีสิทธิทั้งหมด</p>
+                                <h2 id="totalVoters" class="fw-bold mb-0">0</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="metric-card">
+                                <div class="bg-warning p-3 rounded-4 d-inline-flex mb-3" style="--bs-bg-opacity:0.1"><i class="bi bi-lightning-charge text-warning fs-3"></i></div>
+                                <p class="small fw-bold text-muted mb-1">สถานะภูมิภาค</p>
+                                <h2 id="voteRate" class="fw-bold mb-0">0%</h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-lg-12 col-xl-4 text-white">
+                            <div class="metric-card mb-4" style="background: linear-gradient(135deg, #4f46e5, #4338ca); border:none;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="fw-bold mb-0">ปรับแต่งสูตรคำนวณเก้าอี้</h5>
+                                    <i class="bi bi-pencil-square fs-4 text-white-50"></i>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold mb-2">โครงสร้างสูตร (JavaScript Syntax)</label>
+                                    <input type="text" id="seatFormula" class="form-control border-0 rounded-4 shadow-none bg-white bg-opacity-25 text-white placeholder-light mb-2" value="(party * divisor) / total" oninput="updateUI()">
+                                    <p class="mb-3" style="font-size: 0.7rem; opacity: 0.8;">ตัวแปร: <code class="text-white">party</code> (คะแนนพรรค), <code class="text-white">total</code> (รวมทั้งหมด), <code class="text-white">divisor</code> (ตัวหาร)</p>
+                                    
+                                    <label class="form-label small fw-bold mb-2">ตัวหารเฉลี่ย (Divisor)</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" id="seatDivisor" class="form-control border-0 rounded-start-3 shadow-none bg-white bg-opacity-10 text-white" value="11" min="1" step="0.1" oninput="updateUI()">
+                                        <span class="input-group-text bg-white bg-opacity-10 border-0 text-white fw-bold rounded-end-3">ที่นั่ง</span>
+                                    </div>
+                                </div>
+                                <div id="calcStatus" class="small fw-bold text-emerald-soft mt-3 pt-2 border-top border-white border-opacity-10">
+                                    <i class="bi bi-check-circle-fill me-1"></i> สูตรเปิดใช้งานล่าสุด: [ ${divisor} ]
+                                </div>
+                            </div>
+                            <div class="step-card p-4">
+                                <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-pie-chart-fill me-2 text-primary"></i> สัดส่วนคะแนนแยกตามพรรค</h6>
+                                <div style="height: 250px;"><canvas id="partyChart"></canvas></div>
+                            </div>
+                        </div>
+                        <div class="col-lg-12 col-xl-8">
+                            <div class="row g-4 h-100">
+                                <div class="col-12 h-50">
+                                    <div class="step-card p-4 h-100 mb-4">
+                                        <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-bar-chart-fill me-2 text-primary"></i> จำนวนผู้มาใช้สิทธิแยกตามเขต (Region)</h6>
+                                        <div style="height: 250px;"><canvas id="regionChart"></canvas></div>
+                                    </div>
+                                </div>
+                                <div class="col-12 h-50 pt-5 mt-4">
+                                    <div class="step-card p-4 h-100 overflow-auto">
+                                        <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-list-ol me-2 text-primary"></i> สรุปผลการเลือกตั้ง (Real-time)</h6>
+                                        <table class="table table-premium align-middle mb-0">
+                                            <thead>
+                                                <tr class="text-muted small fw-bold">
+                                                    <th>พรรค</th>
+                                                    <th class="text-center">คะแนน</th>
+                                                    <th class="text-center">ร้อยละ</th>
+                                                    <th class="text-center text-primary">ที่นั่ง ส.ส.</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="overviewPartyBody">
+                                                <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 👥 Voters Management -->
+                <div class="tab-pane fade" id="voters">
+                    <div class="d-flex justify-content-between align-items-center mb-5">
+                        <h2 class="fw-bold">จัดการผู้มีสิทธิ</h2>
+                        <button class="btn btn-primary-custom" onclick="openAddVoterModal()">
+                            <i class="bi bi-plus-lg me-2"></i> เพิ่มรายชื่อ
+                        </button>
+                    </div>
+                    <div class="step-card p-4 overflow-hidden">
+                        <table class="table table-premium align-middle mb-0">
+                            <thead><tr class="text-muted small fw-bold"><th></th><th>ชื่อ-นามสกุล</th><th>ภูมิภาค</th><th>สถานะ</th><th class="text-end">ACTIONS</th></tr></thead>
+                            <tbody id="voterTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 🎖 Candidates Management -->
+                <div class="tab-pane fade" id="candidates">
+                    <div class="d-flex justify-content-between align-items-center mb-5">
+                        <h2 class="fw-bold">จัดการผู้สมัคร ส.ส.</h2>
+                        <button class="btn btn-primary-custom" onclick="openAddCandidateModal()">
+                            <i class="bi bi-person-plus me-2"></i> เพิ่มผู้สมัคร
+                        </button>
+                    </div>
+                    <div class="step-card p-4 overflow-hidden">
+                        <table class="table table-premium align-middle mb-0">
+                            <thead><tr class="text-muted small fw-bold"><th>เบอร์</th><th>ชื่อผู้สมัคร</th><th>สังกัดพรรค</th><th>ภูมิภาคเขตเลือกตั้ง</th><th class="text-end">ACTIONS</th></tr></thead>
+                            <tbody id="candidateTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 🚩 Parties Management -->
+                <div class="tab-pane fade" id="parties">
+                    <div class="d-flex justify-content-between align-items-center mb-5">
+                        <h2 class="fw-bold">จัดการพรรคการเมือง</h2>
+                        <button class="btn btn-primary-custom" onclick="openAddPartyModal()">
+                            <i class="bi bi-flag-fill me-2"></i> เพิ่มพรรค
+                        </button>
+                    </div>
+                    <div class="step-card p-4 overflow-hidden">
+                        <table class="table table-premium align-middle mb-0">
+                            <thead><tr class="text-muted small fw-bold"><th>เบอร์</th><th>ชื่อพรรคการเมือง</th><th class="text-center">คะแนนโหวต</th><th class="text-center">ร้อยละ</th><th class="text-center text-primary">เก้าอี้ ส.ส.</th><th class="text-end pe-4">ACTIONS</th></tr></thead>
+                            <tbody id="partyTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ⚙ Settings Section -->
+                <div class="tab-pane fade" id="settings">
+                    <div class="step-card p-5 border-danger-subtle">
+                        <h3 class="fw-bold text-danger mb-4"><i class="bi bi-shield-lock-fill me-2"></i> พื้นที่อันตราย</h3>
+                        <div class="bg-primary-soft p-4 rounded-4 mb-5 border-start border-4 border-danger">
+                            <p class="mb-0 fw-bold">การ "ล้างข้อมูลคะแนน" จะทำให้ผลการลงคะแนนในปัจจุบันหายไปทั้งหมด ไม่สามารถย้อนคืนได้หลังขากยืนยัน</p>
+                        </div>
+                        <button class="btn btn-primary-custom bg-danger border-0 px-5" onclick="confirmResetVotes()">
+                            ล้างข้อมูลคะแนน (Reset All)
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS (All Modals V3 UI) -->
+    <div class="modal fade" id="addVoterModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-5 overflow-hidden">
+                <div class="modal-header bg-main border-0 p-4 px-5"><h4 class="fw-bold mb-0">ลงทะเบียนผู้มีสิทธิ</h4><button class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body px-5 pb-5">
+                    <ul class="nav nav-pills mb-4 bg-light p-1 rounded-4" id="voterAddTabs" role="tablist">
+                        <li class="nav-item flex-fill"><button class="nav-link active w-100 rounded-3 py-2 fw-bold" id="single-tab" data-bs-toggle="pill" data-bs-target="#single-voter" type="button">รายบุคคล</button></li>
+                        <li class="nav-item flex-fill"><button class="nav-link w-100 rounded-3 py-2 fw-bold" id="bulk-tab" data-bs-toggle="pill" data-bs-target="#bulk-voters" type="button">แบบเพิ่มเยอะๆ</button></li>
+                    </ul>
+                    <div class="mb-4"><label class="form-label small fw-bold text-muted">ภูมิภาค</label><select id="newVoterRegion" class="form-select form-select-lg border-2 rounded-4 shadow-none"><option value="east">ภาคตะวันออก</option><option value="south">ภาคใต้</option><option value="north">ภาคเหนือ</option><option value="central">ภาคกลาง</option></select></div>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="single-voter"><div class="mb-3"><label class="form-label small fw-bold text-muted">ชื่อ-นามสกุล</label><input type="text" id="newVoterName" class="form-control form-control-lg border-2 rounded-4" placeholder="เช่น นาย มานะ อุตสาหะ"></div></div>
+                        <div class="tab-pane fade" id="bulk-voters"><div class="mb-3"><label class="form-label small fw-bold text-muted">รายชื่อ (แถวละคน)</label><textarea id="bulkVoterNames" class="form-control border-2 rounded-4" rows="6" placeholder="นาย มานะ อุตสาหะ"></textarea></div></div>
+                    </div>
+                    <button id="btnSaveVoter" class="btn btn-primary-custom w-100 mt-4" onclick="saveVoter()"><i class="bi bi-cloud-upload me-2"></i> บันทึกข้อมูล</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Candidate Modal (Standardized with Bulk) -->
+    <div class="modal fade" id="addCandidateModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-5 overflow-hidden">
+                <div class="modal-header bg-main border-0 p-4 px-5"><h4 class="fw-bold mb-0">จัดการผู้สมัคร ส.ส.</h4><button class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body px-5 pb-5">
+                    <ul class="nav nav-pills mb-4 bg-light p-1 rounded-4" id="candidateAddTabs" role="tablist">
+                        <li class="nav-item flex-fill"><button class="nav-link active w-100 rounded-3 py-2 fw-bold" id="single-cand-tab" data-bs-toggle="pill" data-bs-target="#single-candidate" type="button">รายบุคคล</button></li>
+                        <li class="nav-item flex-fill"><button class="nav-link w-100 rounded-3 py-2 fw-bold" id="bulk-cand-tab" data-bs-toggle="pill" data-bs-target="#bulk-candidates" type="button">แบบเพิ่มเยอะๆ</button></li>
+                    </ul>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">ภูมิภาคเขตเลือกตั้ง</label>
+                            <select id="newCandidateRegion" class="form-select border-2 rounded-4 shadow-none">
+                                <option value="east">ภาคตะวันออก</option>
+                                <option value="south">ภาคใต้</option>
+                                <option value="north">ภาคเหนือ</option>
+                                <option value="central">ภาคกลาง</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">สังกัดพรรค</label>
+                            <select id="newCandidateParty" class="form-select border-2 rounded-4 shadow-none">
+                                <option value="">-- เลือกพรรค --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="single-candidate">
+                            <div class="row g-3">
+                                <div class="col-3">
+                                    <label class="form-label small fw-bold text-muted">เบอร์</label>
+                                    <input type="number" id="newCandidateNumber" class="form-control border-2 rounded-4" placeholder="0">
+                                </div>
+                                <div class="col-9">
+                                    <label class="form-label small fw-bold text-muted">ชื่อ-นามสกุล</label>
+                                    <input type="text" id="newCandidateName" class="form-control border-2 rounded-4" placeholder="ระบุชื่อผู้สมัคร">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="bulk-candidates">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">รายชื่อผู้สมัคร (แถวละคน)</label>
+                                <textarea id="bulkCandidateNames" class="form-control border-2 rounded-4" rows="6" placeholder="นาย มานะ อุตสาหะ"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="btnSaveCandidate" class="btn btn-primary-custom w-100 mt-4" onclick="saveCandidate()"><i class="bi bi-person-check me-2"></i> บันทึกรายชื่อ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addPartyModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-5 overflow-hidden shadow-lg">
+                <div class="modal-header bg-main border-0 p-4 px-5">
+                    <h4 class="fw-bold mb-0">จัดการพรรคการเมือง</h4>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-5 pb-5">
+                    <ul class="nav nav-pills mb-4 bg-light p-1 rounded-4" id="partyAddTabs" role="tablist">
+                        <li class="nav-item flex-fill"><button class="nav-link active w-100 rounded-3 py-2 fw-bold" id="single-party-tab" data-bs-toggle="pill" data-bs-target="#single-party" type="button">รายพรรค</button></li>
+                        <li class="nav-item flex-fill"><button class="nav-link w-100 rounded-3 py-2 fw-bold" id="bulk-party-tab" data-bs-toggle="pill" data-bs-target="#bulk-parties" type="button">เพิ่มเยอะๆ</button></li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="single-party">
+                            <div class="row g-3">
+                                <div class="col-3">
+                                    <label class="form-label small fw-bold text-muted">เบอร์</label>
+                                    <input type="number" id="newPartyNumber" class="form-control border-2 rounded-4" placeholder="0">
+                                </div>
+                                <div class="col-9">
+                                    <label class="form-label small fw-bold text-muted">ชื่อพรรคการเมือง</label>
+                                    <input type="text" id="newPartyName" class="form-control border-2 rounded-4" placeholder="ระบุชื่อพรรค">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="bulk-parties">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">รายชื่อพรรค (แถวละชื่อ)</label>
+                                <textarea id="bulkPartyNames" class="form-control border-2 rounded-4" rows="6" placeholder="พรรคประชารัฐ"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="btnSaveParty" class="btn btn-primary-custom w-100 mt-4" onclick="saveParty()">
+                        <i class="bi bi-check-lg me-2"></i> บันทึกข้อมูลพรรค
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="admin-script.js"></script>
+</body>
+</html>

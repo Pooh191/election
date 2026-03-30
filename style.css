@@ -1,0 +1,232 @@
+/* Premium Modern Design System - Election V3 Ultra */
+
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Inter:wght@300;400;600;700&display=swap');
+
+:root {
+    --primary: #10b981;
+    --primary-dark: #059669;
+    --primary-soft: #ecfdf5;
+    --secondary: #6366f1;
+    --bg-main: #f8fafc;
+    --surface: #ffffff;
+    --text-bold: #0f172a;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --glass: rgba(255, 255, 255, 0.7);
+    --radius: 20px;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+    font-family: 'Inter', 'Sarabun', sans-serif;
+    background-color: var(--bg-main);
+    background-image: 
+        radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.05) 0%, transparent 40%);
+    color: var(--text-bold);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* 🏢 Header Styling */
+.header-card {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+
+.header-decoration {
+    height: 6px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+
+/* 📋 Step & Content Cards */
+.step-card {
+    background: var(--surface);
+    border-radius: 24px;
+    border: 1px solid rgba(0, 0, 0, 0.02);
+    box-shadow: var(--shadow-lg);
+    transition: var(--transition);
+    animation: slideUp 0.7s ease-out;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 🚦 Progress Indicators */
+.step-indicator {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 2.5rem;
+}
+
+.indicator-dot {
+    width: 32px;
+    height: 8px;
+    border-radius: 10px;
+    background: #e2e8f0;
+    transition: var(--transition);
+}
+
+.indicator-dot.active {
+    width: 64px;
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* 🖱️ Interactive Selection Items */
+.candidate-item {
+    position: relative;
+    padding: 24px;
+    margin-bottom: 18px;
+    background: var(--surface);
+    border: 2px solid transparent;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+}
+
+.candidate-item:hover {
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: var(--shadow-md);
+    background: var(--primary-soft);
+    border-color: rgba(16, 185, 129, 0.1);
+}
+
+.candidate-item.selected {
+    background: linear-gradient(to right, #ecfdf5, #f0fdf4);
+    border-color: var(--primary);
+    box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.2);
+}
+
+.candidate-item input { position: absolute; opacity: 0; }
+
+.candidate-content {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-bold);
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.candidate-item .check-icon {
+    margin-left: auto;
+    font-size: 1.5rem;
+    color: var(--primary);
+    opacity: 0;
+    transform: scale(0.5);
+    transition: var(--transition);
+}
+
+.candidate-item.selected .check-icon {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* 🔘 Premium Buttons */
+.btn-primary-custom {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    border: none;
+    border-radius: 18px;
+    padding: 16px 36px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    box-shadow: 0 8px 16px -4px rgba(16, 185, 129, 0.4);
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary-custom:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 20px -4px rgba(16, 185, 129, 0.5);
+    color: white;
+}
+
+.btn-primary-custom:active { transform: scale(0.98); }
+
+.btn-outline-custom {
+    background: transparent;
+    color: var(--text-muted);
+    border: 2px solid var(--border);
+    border-radius: 18px;
+    padding: 14px 34px;
+    font-weight: 600;
+    transition: var(--transition);
+}
+
+.btn-outline-custom:hover {
+    background: var(--border);
+    color: var(--text-bold);
+}
+
+/* 🌀 Enhanced Loader */
+.loader-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem;
+}
+
+.custom-loader {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--primary-soft);
+    border-top: 4px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 📄 Admin Premium Tweaks */
+.admin-sidebar {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(10px);
+    border-right: 1px solid var(--border);
+}
+
+.metric-card {
+    background: var(--surface);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(0, 0, 0, 0.01);
+    transition: var(--transition);
+}
+
+.metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+}
+
+.table-premium tr td {
+    padding: 1.4rem 1rem !important;
+}
+
+/* 🎨 Custom Scrollbar Design */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-main); }
+::-webkit-scrollbar-thumb { 
+    background: linear-gradient(var(--primary), var(--secondary)); 
+    border-radius: 10px; 
+}
+::-webkit-scrollbar-thumb:hover { background: var(--primary-dark); }
+
