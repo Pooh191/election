@@ -18,13 +18,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // โหลดข้อมูลเริ่มต้น
     await fetchElectionData();
     
-    // ตรวจสอบเวลาเปิด-ปิดหีบ
+    // ⏱️ Election Status Real-time Monitoring
     if (electionData.settings) {
         const checkStatus = () => {
             const now = new Date().getTime();
             const start = electionData.settings.startTime ? new Date(electionData.settings.startTime).getTime() : null;
             const end = electionData.settings.endTime ? new Date(electionData.settings.endTime).getTime() : null;
             
+            // Case 1: Election hasn't started yet
             if (start && now < start) {
                 const diff = start - now;
                 const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -41,24 +42,40 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                     <p class="mt-4 small text-muted">ระบบจะเปิดรับลงคะแนนอัตโนมัติในเวลา ${new Date(start).toLocaleString('th-TH')}</p>
                 `);
-                return true;
+                return "PENDING";
             }
+            
+            // Case 2: Election has ended
             if (end && now > end) {
                 showElectionClosed(`🚫 ปิดหีบเลือกตั้งเรียบร้อยแล้ว<br><p class="mt-3 small text-muted">ระบบปิดรับลงคะแนนเมื่อเวลา ${new Date(end).toLocaleString('th-TH')}</p>`);
                 if(timerInterval) clearInterval(timerInterval);
-                return true;
+                return "ENDED";
             }
-            return false;
+            
+            return "OPEN";
         };
 
-        if (checkStatus()) {
+        const status = checkStatus();
+        if (status !== "OPEN") {
+            // Keep updating the countdown if pending
+            if (status === "PENDING") {
+                timerInterval = setInterval(() => {
+                    if (checkStatus() === "OPEN") {
+                       clearInterval(timerInterval);
+                       location.reload(); 
+                    }
+                }, 1000);
+            }
+            return; // Don't show the form if not open
+        } else {
+            // If open, set a timer to check when it ends
             timerInterval = setInterval(() => {
-                if (!checkStatus() && timerInterval) {
-                   clearInterval(timerInterval);
-                   location.reload(); // Refresh when it's time to start
+                if (checkStatus() !== "OPEN") {
+                    clearInterval(timerInterval);
+                    // location.reload() will trigger Case 2 UI
+                    location.reload();
                 }
-            }, 1000);
-            return;
+            }, 10000); // Check every 10 seconds for performance
         }
     }
 
@@ -345,9 +362,6 @@ function showSuccess() {
                 <button class="btn btn-primary-custom py-3 rounded-4 shadow-sm w-100" onclick="location.reload()">
                     <i class="bi bi-house-door-fill me-2"></i> กลับหน้าหลัก
                 </button>
-                <div class="mt-2 pt-3 border-top border-light">
-                    <p class="small text-muted mb-0">รหัสอ้างอิงการโหวต: ${Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
-                </div>
             </div>
         </div>
     `;
