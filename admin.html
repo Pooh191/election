@@ -91,6 +91,29 @@
                 padding-bottom: 8rem;
             }
         }
+        /* Pulse Animation */
+        .pulse-dot {
+            width: 8px; height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            position: relative;
+        }
+        .pulse-dot::after {
+            content: "";
+            position: absolute;
+            width: 100%; height: 100%;
+            background: inherit;
+            border-radius: inherit;
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(.33); opacity: 0.8; }
+            80%, 100% { transform: scale(2.5); opacity: 0; }
+        }
+        .bg-success-soft { background: rgba(16, 185, 129, 0.1); }
+        .bg-primary-soft { background: rgba(79, 70, 229, 0.1); }
+        .bg-danger-soft { background: rgba(239, 68, 68, 0.1); }
+        .max-w-300 { max-width: 300px; }
     </style>
 </head>
 <body class="bg-main">
@@ -189,7 +212,12 @@
                 <div class="tab-pane fade show active" id="dashboard">
                     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 gap-3">
                         <div>
-                            <h1 class="display-6 fw-bold text-bold mb-1">แดชบอร์ดหลัก</h1>
+                            <div class="d-flex align-items-center mb-1">
+                                <h1 class="display-6 fw-bold text-bold mb-0">แดชบอร์ดหลัก</h1>
+                                <span class="badge bg-success-soft text-success border border-success border-opacity-10 ms-3 rounded-pill px-3 py-2 small d-flex align-items-center">
+                                    <span class="pulse-dot me-2"></span> Real-time Live
+                                </span>
+                            </div>
                             <p class="text-muted mb-0">ยินดีต้อนรับสู่ศูนย์ควบคุมจัดการผลการเลือกตั้งอัจฉริยะ</p>
                         </div>
                         <div class="d-flex gap-2">
@@ -459,14 +487,71 @@
 
                 <!-- ⚙ Settings Section -->
                 <div class="tab-pane fade" id="settings">
-                    <div class="step-card p-5 border-danger-subtle">
-                        <h3 class="fw-bold text-danger mb-4"><i class="bi bi-shield-lock-fill me-2"></i> พื้นที่อันตราย</h3>
-                        <div class="bg-primary-soft p-4 rounded-4 mb-5 border-start border-4 border-danger">
-                            <p class="mb-0 fw-bold">การ "ล้างข้อมูลคะแนน" จะทำให้ผลการลงคะแนนในปัจจุบันหายไปทั้งหมด ไม่สามารถย้อนคืนได้หลังขากยืนยัน</p>
+                    <div class="row g-4">
+                        <div class="col-lg-7">
+                            <div class="step-card p-5 h-100 border-0 shadow-sm" style="background: linear-gradient(145deg, #ffffff, #f8fafc);">
+                                <div class="d-flex align-items-center mb-4">
+                                    <div class="bg-primary-soft p-3 rounded-4 me-3">
+                                        <i class="bi bi-clock-history fs-3 text-primary"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="fw-bold mb-0">ช่วงเวลาเปิดลงคะแนน</h3>
+                                        <p class="text-muted small mb-0">กำหนดเวลาที่ประชาชนสามารถเข้าถึงหีบเลือกตั้งดิจิทัล</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-4 pt-2">
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="datetime-local" id="startTime" class="form-control border-2 rounded-4 p-3 shadow-none h-auto" placeholder="Start Time">
+                                            <label class="fw-bold">วัน-เวลาเปิดหีบ</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="datetime-local" id="endTime" class="form-control border-2 rounded-4 p-3 shadow-none h-auto" placeholder="End Time">
+                                            <label class="fw-bold">วัน-เวลาปิดหีบ</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-5">
+                                    <button class="btn btn-primary-custom w-100 py-3 rounded-4 shadow-sm" onclick="saveSettings()">
+                                        <i class="bi bi-cloud-check-fill me-2"></i> บันทึกการตั้งค่าระบบ
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <button class="btn btn-primary-custom bg-danger border-0 px-5" onclick="confirmResetVotes()">
-                            ล้างข้อมูลคะแนน (Reset All)
-                        </button>
+                        
+                        <div class="col-lg-5">
+                            <div class="step-card p-5 h-100 border-danger border-opacity-10 shadow-sm" style="background: linear-gradient(145deg, #ffffff, #fff5f5);">
+                                <div class="d-flex align-items-center mb-4">
+                                    <div class="bg-danger-soft p-3 rounded-4 me-3">
+                                        <i class="bi bi-shield-lock-fill fs-3 text-danger"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="fw-bold text-danger mb-0">จัดการข้อมูลอันตราย</h3>
+                                        <p class="text-muted small mb-0">เข้าถึงการกระทำที่ไม่สามารถย้อนคืนได้</p>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-4 rounded-4 mb-4 border border-danger border-opacity-10 shadow-sm">
+                                    <div class="d-flex gap-3 align-items-center mb-2">
+                                        <i class="bi bi-exclamation-triangle-fill text-danger fs-4"></i>
+                                        <h6 class="fw-bold mb-0 text-danger">คำเตือนระบบ</h6>
+                                    </div>
+                                    <p class="mb-0 text-muted small lh-base">การ "ล้างข้อมูลคะแนน" จะทำการลบข้อมูลในชีตโหวตทั้งหมดถาวร ไม่สามารถกู้คืนได้ และผลรวมจะกลับเป็นศูนย์ทันที</p>
+                                </div>
+
+                                <button class="btn btn-outline-danger w-100 py-3 rounded-4 fw-bold border-2 hover-bg-danger" onclick="confirmResetVotes()">
+                                    <i class="bi bi-trash3-fill me-2"></i> ล้างข้อมูลคะแนนเลือกตั้งทั้งหมด
+                                </button>
+                                
+                                <p class="text-center mt-4 small text-muted">
+                                    Admin: <span class="badge bg-light text-dark border">Root Access</span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
