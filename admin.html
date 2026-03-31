@@ -87,9 +87,38 @@
             .sidebar { display: none; }
             .main-wrapper {
                 margin-left: 0;
-                padding: 1.5rem;
+                padding: 1rem;
                 padding-bottom: 8rem;
             }
+            .mobile-nav .nav-link-custom {
+                padding: 0.75rem 0.25rem !important;
+                border-radius: 16px !important;
+                margin-bottom: 0 !important;
+                justify-content: center !important;
+                min-height: 60px;
+            }
+            .mobile-nav .nav-link-custom i {
+                margin-right: 0 !important;
+                margin-bottom: 4px !important;
+                font-size: 1.25rem !important;
+            }
+        }
+        
+        /* Fix for datetime-local overlap */
+        input[type="datetime-local"].form-control {
+            min-height: 2.5rem;
+            line-height: 1.5;
+        }
+        .form-control.position-relative label {
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .auth-overlay {
+            transition: all 0.5s ease;
+        }
+        .auth-overlay.d-none {
+            pointer-events: none;
         }
         /* Pulse Animation */
         .pulse-dot {
@@ -142,7 +171,7 @@
     <div id="adminContent" class="d-none">
         
         <!-- 📱 Mobile Bottom Nav -->
-        <nav class="mobile-nav d-lg-none position-fixed bottom-0 start-0 w-100 bg-white border-top z-3 px-3 py-2 d-flex justify-content-between shadow-lg" style="border-radius: 24px 24px 0 0; padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));">
+        <nav class="mobile-nav d-lg-none position-fixed bottom-0 start-0 w-100 bg-white border-top z-1050 px-3 py-2 d-flex justify-content-between shadow-lg" style="border-radius: 28px 28px 0 0; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,0.1) !important;">
             <a href="#dashboard" class="nav-link-custom text-center p-2 mb-0 flex-fill active" data-bs-toggle="pill" data-bs-target="#dashboard" style="flex-direction: column;">
                 <i class="bi bi-grid-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">หน้าแรก</span>
             </a>
@@ -154,9 +183,6 @@
             </a>
             <a href="#parties" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#parties" style="flex-direction: column;">
                 <i class="bi bi-flag-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">พรรค</span>
-            </a>
-            <a href="#votes-log" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#votes-log" style="flex-direction: column;">
-                <i class="bi bi-journal-text mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ประวัติ</span>
             </a>
             <a href="#votes-log" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#votes-log" style="flex-direction: column;">
                 <i class="bi bi-journal-text mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ประวัติ</span>
@@ -263,75 +289,80 @@
                     </div>
 
                     <div class="row g-4">
-                        <div class="col-lg-12 col-xl-4 text-white">
-                            <div class="metric-card mb-4" style="background: linear-gradient(135deg, #4f46e5, #4338ca); border:none;">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="fw-bold mb-0">ปรับแต่งสูตรคำนวณเก้าอี้</h5>
-                                    <i class="bi bi-pencil-square fs-4 text-white-50"></i>
+                        <div class="col-lg-8">
+                            <!-- 🏆 Primary Results Table -->
+                            <div class="step-card p-4 h-100 overflow-auto border-0 shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-list-ol me-2 text-primary"></i> สรุปผลการเลือกตั้งพรรคการเมือง (Real-time)</h6>
+                                    <span class="badge bg-primary-soft text-primary rounded-pill">ส.ส. บัญชีรายชื่อ</span>
                                 </div>
-                                <div class="mb-3">
-                                    <label class="form-label small fw-bold mb-2">โครงสร้างสูตร (JavaScript Syntax)</label>
-                                    <input type="text" id="seatFormula" class="form-control border-0 rounded-4 shadow-none bg-white bg-opacity-25 text-white placeholder-light mb-2" value="(party * divisor) / total" oninput="updateUI()">
-                                    <p class="mb-3" style="font-size: 0.7rem; opacity: 0.8;">ตัวแปร: <code class="text-white">party</code> (คะแนนพรรค), <code class="text-white">total</code> (รวมทั้งหมด), <code class="text-white">divisor</code> (ตัวหาร)</p>
-                                    
-                                    <label class="form-label small fw-bold mb-2">ตัวหารเฉลี่ย (Divisor)</label>
-                                    <div class="input-group input-group-sm">
-                                        <input type="number" id="seatDivisor" class="form-control border-0 rounded-start-3 shadow-none bg-white bg-opacity-10 text-white" value="11" min="1" step="0.1" oninput="updateUI()">
-                                        <span class="input-group-text bg-white bg-opacity-10 border-0 text-white fw-bold rounded-end-3">ที่นั่ง</span>
-                                    </div>
-                                </div>
-                                <div id="calcStatus" class="small fw-bold text-emerald-soft mt-3 pt-2 border-top border-white border-opacity-10">
-                                    <i class="bi bi-check-circle-fill me-1"></i> สูตรเปิดใช้งานล่าสุด: [ ${divisor} ]
-                                </div>
-                            </div>
-                            <div class="step-card p-4">
-                                <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-pie-chart-fill me-2 text-primary"></i> สัดส่วนคะแนนแยกตามพรรค</h6>
-                                <div style="height: 250px;"><canvas id="partyChart"></canvas></div>
+                                <table class="table table-premium align-middle mb-0">
+                                    <thead>
+                                        <tr class="text-muted small fw-bold">
+                                            <th>พรรค</th>
+                                            <th class="text-center">คะแนนโหวต</th>
+                                            <th class="text-center">ร้อยละ (%)</th>
+                                            <th class="text-center text-primary" style="background: rgba(16, 185, 129, 0.05);">เก้าอี้สมมติ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="overviewPartyBody">
+                                        <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        <div class="col-lg-12 col-xl-8">
-                            <div class="row g-4 h-100">
-                                <div class="col-12 h-50">
-                                    <div class="step-card p-4 h-100 mb-4">
-                                        <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-bar-chart-fill me-2 text-primary"></i> จำนวนผู้มาใช้สิทธิแยกตามเขต (Region)</h6>
-                                        <div style="height: 250px;"><canvas id="regionChart"></canvas></div>
-                                    </div>
+
+                        <div class="col-lg-4">
+                            <!-- 📊 Visualization Column -->
+                            <div class="step-card p-4 mb-4 border-0 shadow-sm h-50">
+                                <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-pie-chart-fill me-2 text-primary"></i> สัดส่วนคะแนนพรรค</h6>
+                                <div style="height: 180px;"><canvas id="partyChart"></canvas></div>
+                            </div>
+                            
+                            <div class="metric-card h-50 p-4" style="background: linear-gradient(135deg, #4f46e5, #4338ca); border:none; color: white;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="fw-bold mb-0">สูตรคำนวณเก้าอี้</h6>
+                                    <i class="bi bi-gear-fill opacity-50"></i>
                                 </div>
-                                <div class="col-12 h-50 pt-5 mt-4">
-                                    <div class="step-card p-4 h-100 overflow-auto">
-                                        <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-list-ol me-2 text-primary"></i> สรุปผลการเลือกตั้ง (Real-time)</h6>
-                                        <table class="table table-premium align-middle mb-0">
-                                            <thead>
-                                                <tr class="text-muted small fw-bold">
-                                                    <th>พรรค</th>
-                                                    <th class="text-center">คะแนน</th>
-                                                    <th class="text-center">ร้อยละ</th>
-                                                    <th class="text-center text-primary">ที่นั่ง ส.ส.</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="overviewPartyBody">
-                                                <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                <div class="mb-2 text-white-50 small">สูตรปัจจุบัน:</div>
+                                <div class="font-monospace fw-bold mb-3" style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 8px; font-size: 0.8rem;">
+                                    (party * <span id="displayDivisor">11</span>) / total
                                 </div>
-                                <div class="col-12 h-50 pt-3">
-                                    <div class="step-card p-4 h-100 overflow-auto">
-                                        <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-person-lines-fill me-2 text-primary"></i> สรุปผลรายบุคคล (ส.ส. เขต)</h6>
-                                        <table class="table table-premium align-middle mb-0">
-                                            <thead>
-                                                <tr class="text-muted small fw-bold">
-                                                    <th>ชื่อผู้สมัคร</th>
-                                                    <th>ภาค</th>
-                                                    <th class="text-center">คะแนน</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="overviewCandidateBody">
-                                                <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                <div class="input-group input-group-sm mb-3">
+                                    <span class="input-group-text bg-white bg-opacity-20 border-0 text-white">ตัวหารใหม่</span>
+                                    <input type="number" id="seatDivisor" class="form-control border-0 bg-white bg-opacity-10 text-white shadow-none" value="11" min="1" step="0.1" oninput="updateUI()">
                                 </div>
+                                <div id="calcStatus" class="small fw-bold text-info-soft mt-1">
+                                    <i class="bi bi-check-circle-fill me-1"></i> ระบบคำนวณอัตโนมัติ
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-4">
+                            <div class="step-card p-4 h-100 border-0 shadow-sm">
+                                <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-bar-chart-fill me-2 text-primary"></i> คะแนนแยกตามเขต (Region)</h6>
+                                <div style="height: 220px;"><canvas id="regionChart"></canvas></div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-8">
+                            <div class="step-card p-4 h-100 overflow-auto border-0 shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-person-lines-fill me-2 text-primary"></i> สรุปแคนดิเดตผู้ชนะรายเขต (Top Candidates)</h6>
+                                    <button class="btn btn-sm btn-light rounded-pill px-3" onclick="reloadData()">อัปเดต</button>
+                                </div>
+                                <table class="table table-premium align-middle mb-0">
+                                    <thead>
+                                        <tr class="text-muted small fw-bold">
+                                            <th>ชื่อผู้สมัคร</th>
+                                            <th>สังกัดภาค</th>
+                                            <th class="text-center">คะแนนที่ได้รับ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="overviewCandidateBody">
+                                        <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -501,16 +532,16 @@
                                 </div>
                                 
                                 <div class="row g-4 pt-2">
-                                    <div class="col-md-6">
-                                        <div class="form-floating">
-                                            <input type="datetime-local" id="startTime" class="form-control border-2 rounded-4 p-3 shadow-none h-auto" placeholder="Start Time">
-                                            <label class="fw-bold">วัน-เวลาเปิดหีบ</label>
+                                    <div class="col-md-6 mb-3 mb-md-0">
+                                        <div class="p-3 border-2 rounded-4 bg-white border" style="min-height: 90px; border-style: solid; border-color: #e2e8f0;">
+                                            <label class="form-label small fw-bold text-muted mb-1 d-block" style="font-size: 0.75rem;">วัน-เวลาเปิดหีบ</label>
+                                            <input type="datetime-local" id="startTime" class="form-control border-0 p-0 shadow-none bg-transparent fs-5 fw-bold text-dark w-100" style="outline: none;">
                                         </div>
                                     </div>
                                     <div class="col-md-6">
-                                        <div class="form-floating">
-                                            <input type="datetime-local" id="endTime" class="form-control border-2 rounded-4 p-3 shadow-none h-auto" placeholder="End Time">
-                                            <label class="fw-bold">วัน-เวลาปิดหีบ</label>
+                                        <div class="p-3 border-2 rounded-4 bg-white border" style="min-height: 90px; border-style: solid; border-color: #e2e8f0;">
+                                            <label class="form-label small fw-bold text-muted mb-1 d-block" style="font-size: 0.75rem;">วัน-เวลาปิดหีบ</label>
+                                            <input type="datetime-local" id="endTime" class="form-control border-0 p-0 shadow-none bg-transparent fs-5 fw-bold text-dark w-100" style="outline: none;">
                                         </div>
                                     </div>
                                 </div>
@@ -556,6 +587,30 @@
                 </div>
 
             </div>
+
+            <!-- 🏢 Enhanced Admin Modern Footer -->
+            <footer class="footer-glass mt-5 pt-5 pb-4 no-print" style="margin-left: -2rem; margin-right: -2rem; padding-left: 2rem; padding-right: 2rem;">
+                <div class="row align-items-center g-4">
+                    <div class="col-md-4 text-center text-md-start">
+                        <div class="d-flex align-items-center justify-content-center justify-content-md-start mb-2">
+                            <i class="bi bi-shield-check text-primary me-2 fs-5"></i>
+                            <h6 class="fw-bold mb-0 text-dark">Management Console <span class="text-primary small">v3.0.4</span></h6>
+                        </div>
+                        <p class="text-muted small mb-0">ระบบจัดการการเลือกตั้งอัจฉริยะ (Smart Election) - Admin Mode</p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                         <div class="d-inline-flex align-items-center bg-white bg-opacity-50 px-3 py-1 rounded-pill border small text-muted">
+                            <div class="pulse-dot me-2 bg-success"></div> เครือข่ายออนไลน์: <span class="ms-2 fw-bold text-success">Google Apps Script API</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center text-md-end">
+                        <div class="small text-muted opacity-75">
+                            พัฒนาขึ้นเพื่อการเลือกตั้งดิจิทัลโดยเฉพาะ <br>
+                            © 2026 Secured Infrastructure. All Rights Reserved.
+                        </div>
+                    </div>
+                </div>
+            </footer>
         </div>
     </div>
 
