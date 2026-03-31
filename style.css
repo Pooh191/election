@@ -18,7 +18,21 @@
     --glass: rgba(255, 255, 255, 0.7);
     --radius: 20px;
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    --info: #3b82f6;
+    --warning: #f59e0b;
+    --danger: #ef4444;
 }
+
+.bg-primary-soft { background-color: #ecfdf5 !important; }
+.bg-info-soft { background-color: #eff6ff !important; }
+.bg-warning-soft { background-color: #fffbeb !important; }
+.bg-danger-soft { background-color: #fef2f2 !important; }
+
+.text-primary { color: var(--primary) !important; }
+.text-info { color: var(--info) !important; }
+.text-warning { color: var(--warning) !important; }
+.text-danger { color: var(--danger) !important; }
 
 body {
     font-family: 'Inter', 'Sarabun', sans-serif;
