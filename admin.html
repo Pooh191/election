@@ -53,13 +53,28 @@
             margin-right: 1rem;
             font-size: 1.25rem;
         }
+
+        /* 📱 Responsive Adjustments */
+        @media (max-width: 991.98px) {
+            .main-wrapper {
+                margin-left: 0;
+                padding: 1rem;
+                padding-bottom: 6rem; /* Space for bottom nav */
+            }
+            .metric-card h2 {
+                font-size: 1.5rem;
+            }
+            .step-card {
+                padding: 1.5rem !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-main">
 
     <!-- Auth V3 Master Login -->
-    <div id="authOverlay" class="auth-overlay">
-        <div class="login-card text-center" style="width: 440px;">
+    <div id="authOverlay" class="auth-overlay d-flex align-items-center justify-content-center min-vh-100 position-fixed top-0 start-0 w-100 bg-main z-3">
+        <div class="login-card text-center p-5 bg-white rounded-5 shadow-lg mx-3" style="width: 440px; max-width: 100%;">
             <div class="mb-4">
                 <div class="bg-primary-soft p-4 rounded-circle d-inline-flex">
                     <i class="bi bi-person-lock fs-1 text-primary"></i>
@@ -79,13 +94,43 @@
 
     <!-- Main Dashboard V3 -->
     <div id="adminContent" class="d-none">
+        
+        <!-- 📱 Mobile Bottom Nav -->
+        <nav class="mobile-nav d-lg-none position-fixed bottom-0 start-0 w-100 bg-white border-top z-3 px-3 py-2 d-flex justify-content-between shadow-lg" style="border-radius: 24px 24px 0 0; padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));">
+            <a href="#dashboard" class="nav-link-custom text-center p-2 mb-0 flex-fill active" data-bs-toggle="pill" data-bs-target="#dashboard" style="flex-direction: column;">
+                <i class="bi bi-grid-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">หน้าแรก</span>
+            </a>
+            <a href="#voters" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#voters" style="flex-direction: column;">
+                <i class="bi bi-people-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ผู้มีสิทธิ</span>
+            </a>
+            <a href="#candidates" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#candidates" style="flex-direction: column;">
+                <i class="bi bi-person-badge-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ผู้สมัคร</span>
+            </a>
+            <a href="#parties" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#parties" style="flex-direction: column;">
+                <i class="bi bi-flag-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">พรรค</span>
+            </a>
+            <a href="#votes-log" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#votes-log" style="flex-direction: column;">
+                <i class="bi bi-journal-text mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ประวัติ</span>
+            </a>
+            <a href="#votes-log" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#votes-log" style="flex-direction: column;">
+                <i class="bi bi-journal-text mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ประวัติ</span>
+            </a>
+            <a href="#full-report" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#full-report" style="flex-direction: column;">
+                <i class="bi bi-file-earmark-bar-graph mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">สรุปผล</span>
+            </a>
+            <a href="#settings" class="nav-link-custom text-center p-2 mb-0 flex-fill text-danger" data-bs-toggle="pill" data-bs-target="#settings" style="flex-direction: column;">
+                <i class="bi bi-gear-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ตั้งค่า</span>
+            </a>
+        </nav>
+
+        <!-- 💻 Desktop Sidebar -->
         <div class="sidebar d-none d-lg-flex">
             <div class="d-flex align-items-center mb-5">
                 <i class="bi bi-intersect text-primary fs-2 me-3"></i>
                 <h4 class="fw-bold mb-0">SmartAdmin</h4>
             </div>
             
-            <nav class="nav flex-column flex-grow-1">
+            <nav class="nav flex-column flex-grow-1 header-nav">
                 <a href="#dashboard" class="nav-link-custom active" data-bs-toggle="pill" data-bs-target="#dashboard">
                     <i class="bi bi-grid-fill"></i> แผงควบคุม
                 </a>
@@ -97,6 +142,12 @@
                 </a>
                 <a href="#parties" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#parties">
                     <i class="bi bi-flag-fill"></i> พรรคการเมือง
+                </a>
+                <a href="#votes-log" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#votes-log">
+                    <i class="bi bi-journal-text"></i> ประวัติการลงคะแนน
+                </a>
+                <a href="#full-report" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#full-report">
+                    <i class="bi bi-file-earmark-bar-graph"></i> สรุปผลรายงานเว็บ
                 </a>
                 <div class="mt-auto">
                     <a href="#settings" class="nav-link-custom text-danger" data-bs-toggle="pill" data-bs-target="#settings">
@@ -201,6 +252,23 @@
                                         </table>
                                     </div>
                                 </div>
+                                <div class="col-12 h-50 pt-3">
+                                    <div class="step-card p-4 h-100 overflow-auto">
+                                        <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-person-lines-fill me-2 text-primary"></i> สรุปผลรายบุคคล (ส.ส. เขต)</h6>
+                                        <table class="table table-premium align-middle mb-0">
+                                            <thead>
+                                                <tr class="text-muted small fw-bold">
+                                                    <th>ชื่อผู้สมัคร</th>
+                                                    <th>ภาค</th>
+                                                    <th class="text-center">คะแนน</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="overviewCandidateBody">
+                                                <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -251,6 +319,106 @@
                             <thead><tr class="text-muted small fw-bold"><th>เบอร์</th><th>ชื่อพรรคการเมือง</th><th class="text-center">คะแนนโหวต</th><th class="text-center">ร้อยละ</th><th class="text-center text-primary">เก้าอี้ ส.ส.</th><th class="text-end pe-4">ACTIONS</th></tr></thead>
                             <tbody id="partyTableBody"></tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- 📜 Vote Log Management -->
+                <div class="tab-pane fade" id="votes-log">
+                    <div class="d-flex justify-content-between align-items-center mb-5">
+                        <div>
+                            <h2 class="fw-bold">ประวัติการลงคะแนน</h2>
+                            <p class="text-muted small mb-0">รายการตรวจสอบรายบุคคล (ยึดตาม Google Sheet)</p>
+                        </div>
+                        <button class="btn btn-outline-custom" onclick="exportToCSV()">
+                            <i class="bi bi-download me-2"></i> ส่งออกข้อมูล (CSV)
+                        </button>
+                    </div>
+                    <div class="step-card p-4 overflow-hidden">
+                        <table class="table table-premium align-middle mb-0">
+                            <thead>
+                                <tr class="text-muted small fw-bold">
+                                    <th>เวลา</th>
+                                    <th>ชื่อผู้ใช้สิทธิ</th>
+                                    <th>ภาค</th>
+                                    <th>ลงคะแนนให้ ส.ส.</th>
+                                    <th>เลือกพรรค</th>
+                                    <th>IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody id="votesLogTableBody">
+                                <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 📄 Full Report Section (Printable) -->
+                <div class="tab-pane fade" id="full-report">
+                    <div class="d-flex justify-content-between align-items-center mb-5 no-print">
+                        <h2 class="fw-bold">รายงานสรุปผลทั้้งหมด</h2>
+                        <button class="btn btn-primary-custom" onclick="window.print()">
+                            <i class="bi bi-printer me-2"></i> พิมพ์รายงาน (Print)
+                        </button>
+                    </div>
+                    
+                    <div class="report-container bg-white p-5 rounded-5 shadow-sm border">
+                        <div class="text-center mb-5 pb-4 border-bottom">
+                            <h2 class="fw-bold text-primary mb-2">สรุปผลการเลือกตั้ง (Smart Election V3)</h2>
+                            <p class="text-muted">ข้อมูล ณ วันที่ <span id="reportDate"></span> | รายงานแบบ Real-time</p>
+                        </div>
+                        
+                        <div class="row g-4 mb-5 pb-5 border-bottom">
+                            <div class="col-md-3 text-center border-end">
+                                <h5 class="text-muted small fw-bold">ผู้มาใช้สิทธิรวม</h5>
+                                <h1 id="reportTotalVotes" class="fw-bold">0</h1>
+                            </div>
+                            <div class="col-md-3 text-center border-end">
+                                <h5 class="text-muted small fw-bold">จากผู้มีสิทธิทั้งหมด</h5>
+                                <h1 id="reportTotalVoters" class="fw-bold">0</h1>
+                            </div>
+                            <div class="col-md-3 text-center border-end">
+                                <h5 class="text-muted small fw-bold">เปอร์เซ็นต์การมาใช้สิทธิ</h5>
+                                <h1 id="reportVoteRate" class="fw-bold">0%</h1>
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <h5 class="text-muted small fw-bold">ไม่ประสงค์ลงคะแนน</h5>
+                                <h1 id="reportNoVote" class="fw-bold">0</h1>
+                            </div>
+                        </div>
+
+                        <div class="row mb-5">
+                            <div class="col-12">
+                                <h5 class="fw-bold mb-4"><i class="bi bi-flag-fill me-2 text-primary"></i> คะแนนเสียงรายพรรคการเมือง</h5>
+                                <div id="reportPartyList" class="row row-cols-1 row-cols-md-2 g-3">
+                                    <!-- JS Render -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12">
+                                <h5 class="fw-bold mb-4"><i class="bi bi-person-badge-fill me-2 text-primary"></i> สรุปผู้ชนะคะแนนสูงสุดรายเขต (Top Candidates)</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered align-middle">
+                                        <thead class="bg-light">
+                                            <tr>
+                                                <th>ภูมิภาค</th>
+                                                <th>ผู้สมัครที่ได้รับคะแนนสูงสุด</th>
+                                                <th class="text-center">พรรค</th>
+                                                <th class="text-center">คะแนนโหวต</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="reportRegionalWinners">
+                                            <!-- JS Render -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 pt-5 text-center text-muted small border-top no-print">
+                            *** รายงานนี้คำนวณจากข้อมูลใน Google Sheets แบบวินาทีต่อวินาที ***
+                        </div>
                     </div>
                 </div>
 
