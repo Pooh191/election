@@ -12,10 +12,56 @@ let electionData = {
 let currentRegion = "";
 
 // 1. Initialization
+let timerInterval;
+
 document.addEventListener('DOMContentLoaded', async () => {
     // โหลดข้อมูลเริ่มต้น
     await fetchElectionData();
     
+    // ตรวจสอบเวลาเปิด-ปิดหีบ
+    if (electionData.settings) {
+        const checkStatus = () => {
+            const now = new Date().getTime();
+            const start = electionData.settings.startTime ? new Date(electionData.settings.startTime).getTime() : null;
+            const end = electionData.settings.endTime ? new Date(electionData.settings.endTime).getTime() : null;
+            
+            if (start && now < start) {
+                const diff = start - now;
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const secs = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                showElectionClosed(`⏳ การเลือกตั้งจะเริ่มในอีก<br>
+                    <div class="d-flex justify-content-center gap-2 gap-md-3 mt-4 flex-wrap">
+                        <div class="timer-box"><div>${days}</div><span>วัน</span></div>
+                        <div class="timer-box"><div>${hours}</div><span>ชม.</span></div>
+                        <div class="timer-box"><div>${mins}</div><span>นาที</span></div>
+                        <div class="timer-box"><div>${secs}</div><span>วิ</span></div>
+                    </div>
+                    <p class="mt-4 small text-muted">ระบบจะเปิดรับลงคะแนนอัตโนมัติในเวลา ${new Date(start).toLocaleString('th-TH')}</p>
+                `);
+                return true;
+            }
+            if (end && now > end) {
+                showElectionClosed(`🚫 ปิดหีบเลือกตั้งเรียบร้อยแล้ว<br><p class="mt-3 small text-muted">ระบบปิดรับลงคะแนนเมื่อเวลา ${new Date(end).toLocaleString('th-TH')}</p>`);
+                if(timerInterval) clearInterval(timerInterval);
+                return true;
+            }
+            return false;
+        };
+
+        if (checkStatus()) {
+            timerInterval = setInterval(() => {
+                if (!checkStatus() && timerInterval) {
+                   clearInterval(timerInterval);
+                   location.reload(); // Refresh when it's time to start
+                }
+            }, 1000);
+            return;
+        }
+    }
+
     // ตั้งค่า UI เริ่มต้น
     initVoters();
     initParties();
@@ -44,6 +90,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
+function showElectionClosed(message) {
+    const loader = document.getElementById('globalLoader');
+    loader.innerHTML = `
+        <div class="text-center p-5 animate__animated animate__fadeIn">
+            <div class="bg-white p-5 rounded-5 shadow-lg border">
+                <i class="bi bi-clock-history text-warning display-1 mb-4"></i>
+                <h2 class="fw-bold text-bold">${message}</h2>
+                <div class="mt-4 pt-4 border-top">
+                    <p class="text-muted small">ขอบคุณที่ให้ความสนใจในการใช้สิทธิเลือกตั้ง</p>
+                </div>
+            </div>
+        </div>
+    `;
+    loader.classList.remove('d-none');
+}
 
 async function fetchElectionData() {
     try {
@@ -260,7 +322,35 @@ async function sendVoteData() {
 
 function showSuccess() {
     showStep('success');
-    document.querySelector('.header-card').style.display = 'none';
+    
+    // Hide header for cleaner look
+    const header = document.querySelector('.header-card');
+    if (header) {
+        header.style.opacity = '0';
+        setTimeout(() => header.classList.add('d-none'), 300);
+    }
+    
+    // Add success animation elements
+    const successCard = document.getElementById('step-success');
+    successCard.innerHTML = `
+        <div class="text-center p-5 animate__animated animate__zoomIn">
+            <div class="mb-4">
+                <div class="d-inline-flex bg-success bg-opacity-10 p-4 rounded-circle animate__animated animate__bounceIn animate__delay-1s">
+                    <i class="bi bi-check-circle-fill text-success" style="font-size: 5rem;"></i>
+                </div>
+            </div>
+            <h2 class="fw-bold mb-3">บันทึกคะแนนสำเร็จ!</h2>
+            <p class="text-muted mb-5">ขอบคุณที่ร่วมเป็นส่วนหนึ่งของการขับเคลื่อนระบอบประชาธิปไตย รายการโหวตของคุณถูกส่งเข้าสู่ระบบส่วนกลางแล้ว</p>
+            <div class="d-flex flex-column gap-3 max-w-300 mx-auto px-4">
+                <button class="btn btn-primary-custom py-3 rounded-4 shadow-sm w-100" onclick="location.reload()">
+                    <i class="bi bi-house-door-fill me-2"></i> กลับหน้าหลัก
+                </button>
+                <div class="mt-2 pt-3 border-top border-light">
+                    <p class="small text-muted mb-0">รหัสอ้างอิงการโหวต: ${Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 function showToast(message, type) {
