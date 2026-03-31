@@ -86,6 +86,9 @@ function updateUI() {
     renderVotersTable();
     renderCandidatesTable();
     renderPartiesTable();
+    renderVotesLogTable();
+    renderCandidateSummary();
+    renderFullReport();
 }
 
 let editingId = null;
@@ -93,8 +96,12 @@ let editingId = null;
 function renderVotersTable() {
     const body = document.getElementById('voterTableBody');
     body.innerHTML = '';
+    
+    // Create a Set for O(1) loop up
+    const votedNames = new Set((globalData.votes || []).map(v => v.voter));
+
     (globalData.voters || []).slice().reverse().forEach(v => {
-        const hasVoted = (globalData.votes || []).some(vote => vote.voter === v.name);
+        const hasVoted = votedNames.has(v.name);
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="ps-4"><div class="avatar-sm bg-primary-soft text-primary rounded-circle d-flex align-items-center justify-content-center" style="width:38px; height:38px;"><i class="bi bi-person-fill"></i></div></td>
@@ -193,6 +200,164 @@ function renderPartiesTable() {
     
     const status = document.getElementById('calcStatus');
     if (status) status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> สูตรเปิดใช้งานล่าสุด: [ ${divisor} ]`;
+}
+
+function renderVotesLogTable() {
+    const body = document.getElementById('votesLogTableBody');
+    if (!body) return;
+    
+    body.innerHTML = '';
+    const votes = (globalData.votes || []).slice().reverse(); // ล่าสุดอยู่บน
+
+    if (votes.length === 0) {
+        body.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">ยังไม่มีข้อมูลการลงคะแนน</td></tr>';
+        return;
+    }
+
+    votes.forEach(v => {
+        const row = document.createElement('tr');
+        const date = v.timestamp ? new Date(v.timestamp).toLocaleString('th-TH') : '-';
+        row.innerHTML = `
+            <td class="small text-muted">${date}</td>
+            <td class="fw-bold">${v.voter || '-'}</td>
+            <td><span class="badge bg-light text-dark border">${formatRegionName(v.region)}</span></td>
+            <td><span class="text-primary fw-medium">${v.candidate || '-'}</span></td>
+            <td><span class="text-success fw-medium">${v.party || '-'}</span></td>
+            <td class="small text-muted font-monospace">${v.ip || '-'}</td>
+        `;
+        body.appendChild(row);
+    });
+}
+
+function exportToCSV() {
+    const votes = globalData.votes || [];
+    if (votes.length === 0) {
+        alert("ไม่มีข้อมูลให้ส่งออก");
+        return;
+    }
+
+    const headers = ["Timestamp", "Voter", "Region", "Candidate", "Party", "IP Address"];
+    const rows = votes.map(v => [
+        v.timestamp,
+        v.voter,
+        formatRegionName(v.region),
+        v.candidate,
+        v.party,
+        v.ip
+    ]);
+
+    let csvContent = "\uFEFF"; // Add BOM for Excel Thai support
+    csvContent += headers.join(",") + "\n";
+    rows.forEach(row => {
+        csvContent += row.map(field => `"${field}"`).join(",") + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `election_report_${new Date().getTime()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function renderCandidateSummary() {
+    const body = document.getElementById('overviewCandidateBody');
+    if (!body) return;
+
+    const candVotes = {};
+    const candRegion = {};
+    globalData.votes.forEach(v => {
+        if (v.candidate && v.candidate !== 'ไม่ได้เลือก' && v.candidate !== 'ไม่ประสงค์ลงคะแนน') {
+            candVotes[v.candidate] = (candVotes[v.candidate] || 0) + 1;
+            candRegion[v.candidate] = v.region;
+        }
+    });
+
+    const sortedCands = Object.keys(candVotes).sort((a, b) => candVotes[b] - candVotes[a]);
+
+    body.innerHTML = '';
+    if (sortedCands.length === 0) {
+        body.innerHTML = '<tr><td colspan="3" class="text-center py-3 text-muted small">ยังไม่มีข้อมูล</td></tr>';
+        return;
+    }
+
+    sortedCands.forEach(name => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="fw-bold">${name}</td>
+            <td><span class="badge bg-light text-dark border">${formatRegionName(candRegion[name]) || '-'}</span></td>
+            <td class="text-center"><span class="badge bg-primary px-3 fw-bold">${candVotes[name].toLocaleString()}</span></td>
+        `;
+        body.appendChild(row);
+    });
+}
+
+function renderFullReport() {
+    const reportDate = document.getElementById('reportDate');
+    if (!reportDate) return;
+    
+    reportDate.innerText = new Date().toLocaleString('th-TH');
+    
+    // Metrics
+    const votes = globalData.votes || [];
+    const voters = globalData.voters || [];
+    const noVotes = votes.filter(v => v.candidate === 'ไม่ประสงค์ลงคะแนน' || v.candidate === 'ไม่ได้เลือก').length;
+    
+    document.getElementById('reportTotalVotes').innerText = votes.length.toLocaleString();
+    document.getElementById('reportTotalVoters').innerText = voters.length.toLocaleString();
+    document.getElementById('reportVoteRate').innerText = (voters.length > 0 ? Math.round((votes.length / voters.length) * 100) : 0) + "%";
+    document.getElementById('reportNoVote').innerText = noVotes.toLocaleString();
+
+    // Party List
+    const partyStats = {};
+    votes.forEach(v => { if (v.party && v.party !== 'ไม่ประสงค์ลงคะแนน') partyStats[v.party] = (partyStats[v.party] || 0) + 1; });
+    
+    const partyContainer = document.getElementById('reportPartyList');
+    partyContainer.innerHTML = '';
+    (globalData.parties || []).forEach(p => {
+        const count = partyStats[p.name] || 0;
+        const col = document.createElement('div');
+        col.className = 'col';
+        col.innerHTML = `
+            <div class="d-flex justify-content-between p-3 border rounded-4 bg-light bg-opacity-50">
+                <span class="fw-bold"><span class="text-primary me-2">เบอร์ ${p.number}</span> ${p.name}</span>
+                <span class="fw-bold">${count.toLocaleString()} คะแนน</span>
+            </div>
+        `;
+        partyContainer.appendChild(col);
+    });
+
+    // Regional Winners
+    const regionWinners = {};
+    votes.forEach(v => {
+        if (v.candidate && v.candidate !== 'ไม่ประสงค์ลงคะแนน' && v.candidate !== 'ไม่ได้เลือก') {
+            if (!regionWinners[v.region]) regionWinners[v.region] = {};
+            regionWinners[v.region][v.candidate] = (regionWinners[v.region][v.candidate] || 0) + 1;
+        }
+    });
+
+    const winnerTable = document.getElementById('reportRegionalWinners');
+    winnerTable.innerHTML = '';
+    ['central', 'north', 'south', 'east'].forEach(r => {
+        const cands = regionWinners[r] || {};
+        const topCand = Object.keys(cands).reduce((a, b) => cands[a] > cands[b] ? a : b, null);
+        const winCount = topCand ? cands[topCand] : 0;
+        
+        // Find candidate party
+        const candData = globalData.candidates.find(c => c.name === topCand);
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="fw-bold">${formatRegionName(r)}</td>
+            <td>${topCand || '<span class="text-muted">ยังไม่มีข้อมูล</span>'}</td>
+            <td class="text-center">${candData ? candData.party : '-'}</td>
+            <td class="text-center fw-bold">${winCount.toLocaleString()}</td>
+        `;
+        winnerTable.appendChild(row);
+    });
 }
 
 // 4. API Core Actions (Optimized for Speed)
