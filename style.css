@@ -332,3 +332,53 @@ body {
     box-shadow: 0 10px 20px rgba(220, 38, 38, 0.2);
 }
 
+/* 🌐 Footer & Social Glassmorphism UI */
+.footer-glass {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.6);
+    position: relative;
+    overflow: hidden;
+}
+
+.footer-glass::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+}
+
+.social-btn {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    box-shadow: var(--shadow-sm);
+    border-radius: 14px;
+    color: var(--text-muted);
+    transition: var(--transition);
+    text-decoration: none;
+    border: 1px solid var(--border);
+}
+
+.social-btn:hover {
+    transform: translateY(-5px) rotate(8deg);
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
+}
+
+/* Auth V3 Overlays */
+.auth-overlay {
+    backdrop-filter: blur(25px);
+    background: rgba(248, 250, 252, 0.9) !important;
+}
+
+.login-card {
+    border: 1px solid rgba(255, 255, 255, 1);
+    box-shadow: 0 50px 100px -20px rgba(0,0,0,0.15) !important;
+}
+
