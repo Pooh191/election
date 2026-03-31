@@ -72,6 +72,15 @@ function updateUI() {
     
     const rate = voters.length > 0 ? Math.round((votes.length / voters.length) * 100) : 0;
     document.getElementById('voteRate').textContent = rate + "%";
+    
+    // Animate Progress Bar
+    const progressBar = document.getElementById('rateProgress');
+    if (progressBar) {
+        progressBar.style.width = rate + "%";
+        if (rate > 80) progressBar.className = "progress-bar bg-success";
+        else if (rate > 40) progressBar.className = "progress-bar bg-primary";
+        else progressBar.className = "progress-bar bg-warning";
+    }
 
     // Chart Data Preparation
     const partyCounts = {};
