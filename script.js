@@ -64,8 +64,10 @@ function initVoters() {
         return;
     }
 
+    const votedNames = new Set(electionData.votes.map(v => v.voter));
+
     electionData.voters.forEach(voter => {
-        const hasVoted = electionData.votes.some(v => v.voter === voter.name);
+        const hasVoted = votedNames.has(voter.name);
         const option = document.createElement('option');
         option.value = voter.region;
         option.textContent = voter.name + (hasVoted ? " (✅ ลงคะแนนแล้ว)" : "");
@@ -88,49 +90,43 @@ function renderRegionalCandidates(region) {
     
     const regionalCandidates = electionData.candidates.filter(c => c.region === region);
     
-    // Delay นิดหนึ่งเพื่อให้เห็นสถานะ (แต่ความจริงข้อมูลอาจโหลดไว้แล้ว)
-    setTimeout(() => {
-        container.innerHTML = '';
-        if (regionalCandidates.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-5">
-                    <i class="bi bi-person-exclamation text-muted" style="font-size: 3rem;"></i>
-                    <p class="text-muted mt-3">ขออภัย ยังไม่มีรายชื่อผู้สมัครในเขตพื้นที่นี้</p>
-                </div>`;
-            return;
-        }
+    container.innerHTML = '';
+    if (regionalCandidates.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="bi bi-person-exclamation text-muted" style="font-size: 3rem;"></i>
+                <p class="text-muted mt-3">ขออภัย ยังไม่มีรายชื่อผู้สมัครในเขตพื้นที่นี้</p>
+            </div>`;
+        return;
+    }
 
-        regionalCandidates.forEach(can => {
-            container.appendChild(createSelectionItem(region, can.id, can.name, `mp_regional`, can.number, can.party));
-        });
-        
-        // เพิ่มตัวเลือก ไม่ประสงค์ลงคะแนน สำหรับ ส.ส. เขต
-        const noVoteMP = createSelectionItem(region, 'NO_VOTE', 'ไม่ประสงค์ลงคะแนน', `mp_regional`);
-        noVoteMP.classList.add('border-danger', 'text-danger', 'bg-danger', 'bg-opacity-10');
-        container.appendChild(noVoteMP);
-    }, 400);
+    regionalCandidates.forEach(can => {
+        container.appendChild(createSelectionItem(region, can.id, can.name, `mp_regional`, can.number, can.party));
+    });
+    
+    // เพิ่มตัวเลือก ไม่ประสงค์ลงคะแนน สำหรับ ส.ส. เขต
+    const noVoteMP = createSelectionItem(region, 'NO_VOTE', 'ไม่ประสงค์ลงคะแนน', `mp_regional`);
+    noVoteMP.classList.add('border-danger', 'text-danger', 'bg-danger', 'bg-opacity-10');
+    container.appendChild(noVoteMP);
 }
 
 function initParties() {
     const partyContainer = document.getElementById('party-list');
     partyContainer.innerHTML = '<p class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span> กำลังดาวน์โหลดรายชื่อพรรค...</p>';
     
-    // เหมือนกับ candidates
-    setTimeout(() => {
-        partyContainer.innerHTML = '';
-        if (electionData.parties.length === 0) {
-            partyContainer.innerHTML = '<p class="text-center text-muted py-4">ไม่พบรายชื่อพรรคการเมือง</p>';
-            return;
-        }
-        electionData.parties.forEach(party => {
-            partyContainer.appendChild(createSelectionItem('party', party.id, party.name, 'political_party', party.number));
-        });
-        
-        // เพิ่มตัวเลือก ไม่ประสงค์ลงคะแนน สำหรับ พรรคการเมือง
-        const noVoteParty = createSelectionItem('party', 'NO_VOTE', 'ไม่ประสงค์ลงคะแนน', 'political_party');
-        noVoteParty.classList.add('border-danger', 'text-danger', 'bg-danger', 'bg-opacity-10');
-        partyContainer.appendChild(noVoteParty);
-    }, 500);
+    partyContainer.innerHTML = '';
+    if (electionData.parties.length === 0) {
+        partyContainer.innerHTML = '<p class="text-center text-muted py-4">ไม่พบรายชื่อพรรคการเมือง</p>';
+        return;
+    }
+    electionData.parties.forEach(party => {
+        partyContainer.appendChild(createSelectionItem('party', party.id, party.name, 'political_party', party.number));
+    });
+    
+    // เพิ่มตัวเลือก ไม่ประสงค์ลงคะแนน สำหรับ พรรคการเมือง
+    const noVoteParty = createSelectionItem('party', 'NO_VOTE', 'ไม่ประสงค์ลงคะแนน', 'political_party');
+    noVoteParty.classList.add('border-danger', 'text-danger', 'bg-danger', 'bg-opacity-10');
+    partyContainer.appendChild(noVoteParty);
 }
 
 function createSelectionItem(type, id, name, groupName, number = null, partyName = null) {
