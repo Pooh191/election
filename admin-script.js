@@ -1,20 +1,31 @@
 /* Smart Election Admin Control V3 Premium */
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxrBQ5yDzwfAmyTWgNW2ZFXMD99MQftiuLlPdSGyEHCO9_LqgXU4V67GJhQCxQ-s_je6w/exec";
-const ADMIN_PASS = "1234";
 
 let partyChart, regionChart;
 let globalData = { voters: [], candidates: [], parties: [], votes: [] };
 
-// 1. Authentication V3
-function checkAuth() {
+// 1. Authentication V3 (SHA-256 Hashing)
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkAuth() {
     const input = document.getElementById('adminPass').value;
-    if (input === ADMIN_PASS) {
+    const inputHash = await sha256(input);
+
+    const secureHash = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
+
+    if (inputHash === secureHash) {
         loginSuccess();
     } else {
         const err = document.getElementById('authError');
         err.classList.remove('d-none');
         err.classList.add('animate__animated', 'animate__shakeX');
+        setTimeout(() => err.classList.remove('animate__shakeX'), 500);
     }
 }
 
@@ -40,14 +51,76 @@ window.onload = () => {
         document.getElementById('adminContent').classList.remove('d-none');
         reloadData();
     }
+
+    // 🔀 Tab Sychronizer and Fix for Mobile Tabs
+    document.querySelectorAll('[data-bs-toggle="pill"]').forEach(btn => {
+        btn.addEventListener('show.bs.tab', function (e) {
+            const target = e.target.getAttribute('data-bs-target');
+            // Sync all identical buttons (Sidebar vs Mobile)
+            document.querySelectorAll(`[data-bs-target="${target}"]`).forEach(el => {
+                if (el !== e.target) el.classList.add('active');
+            });
+            // Untoggle others
+            const others = document.querySelectorAll(`[data-bs-toggle="pill"]:not([data-bs-target="${target}"])`);
+            others.forEach(el => el.classList.remove('active'));
+        });
+
+        // Manual Trigger for Mobile devices that might miss Bootstrap event
+        btn.onclick = function (e) {
+            const targetId = this.getAttribute('data-bs-target').substring(1);
+            const pane = document.getElementById(targetId);
+            if (pane) {
+                // Remove active from all panes
+                document.querySelectorAll('.tab-pane').forEach(p => {
+                    p.classList.remove('show', 'active');
+                });
+                // Add active to target pane
+                pane.classList.add('show', 'active');
+
+                // Sync UI Buttons
+                const allTriggers = document.querySelectorAll('[data-bs-toggle="pill"]');
+                allTriggers.forEach(t => t.classList.remove('active'));
+                document.querySelectorAll(`[data-bs-target="#${targetId}"]`).forEach(t => t.classList.add('active'));
+            }
+        };
+    });
 };
 
 // 2. Data Fetching
 async function reloadData() {
-    showTableLoaders(); // แสดงสถานะกำลังโหลด
+    showTableLoaders();
     try {
         const response = await fetch(SCRIPT_URL);
         globalData = await response.json();
+
+        // Populate Settings UI
+        if (globalData.settings) {
+            const startInput = document.getElementById('startTime');
+            const endInput = document.getElementById('endTime');
+
+            // Format dates for datetime-local input (YYYY-MM-DDTHH:mm)
+            const formatDateForInput = (dateStr) => {
+                if (!dateStr) return "";
+                if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dateStr)) return dateStr;
+                const d = new Date(dateStr);
+                if (isNaN(d.getTime())) return dateStr;
+                const pad = (n) => n.toString().padStart(2, '0');
+                const y = d.getFullYear();
+                const m = pad(d.getMonth() + 1);
+                const day = pad(d.getDate());
+                const h = pad(d.getHours());
+                const min = pad(d.getMinutes());
+                return `${y}-${m}-${day}T${h}:${min}`;
+            };
+
+            if (startInput && globalData.settings.startTime) {
+                startInput.value = formatDateForInput(globalData.settings.startTime);
+            }
+            if (endInput && globalData.settings.endTime) {
+                endInput.value = formatDateForInput(globalData.settings.endTime);
+            }
+        }
+
         updateUI();
     } catch (err) {
         console.error("API Fetch Error:", err);
@@ -65,14 +138,14 @@ function showTableLoaders() {
 function updateUI() {
     const votes = globalData.votes || [];
     const voters = globalData.voters || [];
-    
+
     // Updates Metrics
     document.getElementById('totalVotes').textContent = votes.length.toLocaleString();
     document.getElementById('totalVoters').textContent = voters.length.toLocaleString();
-    
+
     const rate = voters.length > 0 ? Math.round((votes.length / voters.length) * 100) : 0;
     document.getElementById('voteRate').textContent = rate + "%";
-    
+
     // Animate Progress Bar
     const progressBar = document.getElementById('rateProgress');
     if (progressBar) {
@@ -105,7 +178,7 @@ let editingId = null;
 function renderVotersTable() {
     const body = document.getElementById('voterTableBody');
     body.innerHTML = '';
-    
+
     // Create a Set for O(1) loop up
     const votedNames = new Set((globalData.votes || []).map(v => v.voter));
 
@@ -131,7 +204,7 @@ function renderVotersTable() {
 function renderCandidatesTable() {
     const body = document.getElementById('candidateTableBody');
     body.innerHTML = '';
-    
+
     (globalData.candidates || []).forEach(c => {
         // ดึงค่ามาพักไว้ก่อนเพื่อความชัวร์ (เผื่อกรณีคอลัมน์ใน Sheet สลับกัน)
         // เราจะอ้างอิงจากคีย์ที่ดึงมาจาก Sheet Header โดยตรง
@@ -156,10 +229,10 @@ function renderPartiesTable() {
     const divisor = parseFloat(document.getElementById('seatDivisor').value) || 1;
     const formulaStr = document.getElementById('seatFormula').value;
     const total = globalData.votes.length;
-    
+
     body.innerHTML = '';
     if (overviewBody) overviewBody.innerHTML = '';
-    
+
     const partyVotes = {};
     globalData.votes.forEach(v => {
         partyVotes[v.party] = (partyVotes[v.party] || 0) + 1;
@@ -168,7 +241,7 @@ function renderPartiesTable() {
     (globalData.parties || []).forEach(p => {
         const party = partyVotes[p.name] || 0;
         const percent = total > 0 ? ((party / total) * 100).toFixed(1) : "0.0";
-        
+
         let seats = "0.00";
         if (total > 0) {
             try {
@@ -178,7 +251,7 @@ function renderPartiesTable() {
                 seats = "Err!";
             }
         }
-        
+
         // 1. Render in Parties Tab
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -206,15 +279,23 @@ function renderPartiesTable() {
             overviewBody.appendChild(overviewRow);
         }
     });
+
+    const displayDivisor = document.getElementById('displayDivisor');
+    if (displayDivisor) displayDivisor.textContent = divisor;
     
     const status = document.getElementById('calcStatus');
-    if (status) status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> สูตรเปิดใช้งานล่าสุด: [ ${divisor} ]`;
+    if (status) {
+        status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ข้อมูลอัปเดตอัตโนมัติเรียบร้อย`;
+        status.classList.add('animate__animated', 'animate__fadeIn');
+        setTimeout(() => status.classList.remove('animate__animated', 'animate__fadeIn'), 1000);
+    }
 }
+
 
 function renderVotesLogTable() {
     const body = document.getElementById('votesLogTableBody');
     if (!body) return;
-    
+
     body.innerHTML = '';
     const votes = (globalData.votes || []).slice().reverse(); // ล่าสุดอยู่บน
 
@@ -307,14 +388,14 @@ function renderCandidateSummary() {
 function renderFullReport() {
     const reportDate = document.getElementById('reportDate');
     if (!reportDate) return;
-    
+
     reportDate.innerText = new Date().toLocaleString('th-TH');
-    
+
     // Metrics
     const votes = globalData.votes || [];
     const voters = globalData.voters || [];
     const noVotes = votes.filter(v => v.candidate === 'ไม่ประสงค์ลงคะแนน' || v.candidate === 'ไม่ได้เลือก').length;
-    
+
     document.getElementById('reportTotalVotes').innerText = votes.length.toLocaleString();
     document.getElementById('reportTotalVoters').innerText = voters.length.toLocaleString();
     document.getElementById('reportVoteRate').innerText = (voters.length > 0 ? Math.round((votes.length / voters.length) * 100) : 0) + "%";
@@ -323,7 +404,7 @@ function renderFullReport() {
     // Party List
     const partyStats = {};
     votes.forEach(v => { if (v.party && v.party !== 'ไม่ประสงค์ลงคะแนน') partyStats[v.party] = (partyStats[v.party] || 0) + 1; });
-    
+
     const partyContainer = document.getElementById('reportPartyList');
     partyContainer.innerHTML = '';
     (globalData.parties || []).forEach(p => {
@@ -354,10 +435,10 @@ function renderFullReport() {
         const cands = regionWinners[r] || {};
         const topCand = Object.keys(cands).reduce((a, b) => cands[a] > cands[b] ? a : b, null);
         const winCount = topCand ? cands[topCand] : 0;
-        
+
         // Find candidate party
         const candData = globalData.candidates.find(c => c.name === topCand);
-        
+
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="fw-bold">${formatRegionName(r)}</td>
@@ -367,6 +448,28 @@ function renderFullReport() {
         `;
         winnerTable.appendChild(row);
     });
+}
+
+async function saveSettings() {
+    const startTime = document.getElementById('startTime').value;
+    const endTime = document.getElementById('endTime').value;
+
+    const btn = document.querySelector('button[onclick="saveSettings()"]');
+    const originalText = btn.innerHTML;
+
+    try {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...`;
+
+        await callAPI('UPDATE_SETTINGS', { startTime, endTime });
+        await reloadData(); // Sync with server for certainty
+        alert("บันทึกการตั้งค่าเวลาเรียบร้อยแล้ว");
+    } catch (error) {
+        alert("เกิดข้อผิดพลาด: " + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
 }
 
 // 4. API Core Actions (Optimized for Speed)
@@ -379,7 +482,7 @@ async function callAPI(action, data = {}, id = null) {
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action, data, id })
         });
-        
+
         const res = await response.json();
         if (res.result === "success") {
             // ไม่ต้อง reloadData() ทั้งหมดทุุกครั้ง ให้แก้ไขที่ตัวแปร globalData โดยตรง
@@ -390,7 +493,7 @@ async function callAPI(action, data = {}, id = null) {
             reloadData(); // ถ้าพลาดให้ดึงใหม่ทั้งหมดเพื่อซิงค์
             return false;
         }
-    } catch (e) { 
+    } catch (e) {
         console.error("API Call Error:", e);
         alert("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
         reloadData();
@@ -418,8 +521,10 @@ function handleLocalStateUpdate(action, data, id) {
         setTimeout(reloadData, 1500);
     } else if (action === 'RESET_VOTES') {
         globalData.votes = [];
+    } else if (action === 'UPDATE_SETTINGS') {
+        globalData.settings = { ...globalData.settings, ...data };
     }
-    
+
     updateUI(); // วาดตารางใหม่ทันทีจากข้อมูลในหน่วยความจำ
 }
 
@@ -431,7 +536,7 @@ function editEntry(type, id) {
         if (v) {
             document.getElementById('newVoterName').value = v.name || '';
             document.getElementById('newVoterRegion').value = v.region || 'central';
-            document.getElementById('single-tab').click(); 
+            document.getElementById('single-tab').click();
             new bootstrap.Modal('#addVoterModal').show();
         }
     } else if (type === 'CANDIDATE') {
@@ -462,12 +567,10 @@ async function saveVoter() {
     const region = document.getElementById('newVoterRegion').value;
     const isSingle = document.getElementById('single-tab').classList.contains('active');
     const btn = document.getElementById('btnSaveVoter');
-    const spinner = document.getElementById('saveVoterSpinner');
-    const icon = document.getElementById('saveVoterIcon');
-    
+
     btn.disabled = true;
-    spinner.classList.remove('d-none');
-    icon.classList.add('d-none');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...';
 
     try {
         if (isSingle) {
@@ -481,6 +584,7 @@ async function saveVoter() {
                 document.getElementById('newVoterName').value = '';
             } else {
                 alert("กรุณาระบุชื่อ-นามสกุล");
+                return;
             }
         } else {
             const bulkText = document.getElementById('bulkVoterNames').value;
@@ -491,8 +595,7 @@ async function saveVoter() {
             } else {
                 alert("กรุณาป้อนรายชื่ออย่างน้อย 1 รายการ");
                 btn.disabled = false;
-                spinner.classList.add('d-none');
-                icon.classList.remove('d-none');
+                btn.innerHTML = originalHTML;
                 return;
             }
         }
@@ -501,15 +604,14 @@ async function saveVoter() {
         alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
     } finally {
         btn.disabled = false;
-        spinner.classList.add('d-none');
-        icon.classList.remove('d-none');
+        btn.innerHTML = originalHTML;
     }
 }
 
 function updatePartyDropdowns() {
     const dropdown = document.getElementById('newCandidateParty');
     if (!dropdown) return;
-    
+
     const currentVal = dropdown.value;
     dropdown.innerHTML = '<option value="">-- เลือกพรรค --</option>';
     (globalData.parties || []).forEach(p => {
@@ -522,12 +624,12 @@ function updatePartyDropdowns() {
 }
 
 // Candidates & Parties Management
-function openAddCandidateModal() { 
+function openAddCandidateModal() {
     editingId = null;
     document.getElementById('newCandidateName').value = '';
     document.getElementById('newCandidateNumber').value = '';
     updatePartyDropdowns();
-    new bootstrap.Modal('#addCandidateModal').show(); 
+    new bootstrap.Modal('#addCandidateModal').show();
 }
 
 async function saveCandidate() {
@@ -535,7 +637,7 @@ async function saveCandidate() {
     const party = document.getElementById('newCandidateParty').value;
     const isSingle = document.getElementById('single-cand-tab').classList.contains('active');
     const btn = document.getElementById('btnSaveCandidate');
-    
+
     btn.disabled = true;
     const originalHTML = btn.innerHTML;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...';
@@ -555,6 +657,7 @@ async function saveCandidate() {
                 bootstrap.Modal.getInstance(document.getElementById('addCandidateModal')).hide();
             } else {
                 alert("กรุณาระบุชื่อและเบอร์ผู้สมัคร");
+                return;
             }
         } else {
             const bulkText = document.getElementById('bulkCandidateNames').value;
@@ -575,17 +678,17 @@ async function saveCandidate() {
     }
 }
 
-function openAddPartyModal() { 
-    editingId = null; 
-    document.getElementById('newPartyName').value = ''; 
-    document.getElementById('newPartyNumber').value = ''; 
-    new bootstrap.Modal('#addPartyModal').show(); 
+function openAddPartyModal() {
+    editingId = null;
+    document.getElementById('newPartyName').value = '';
+    document.getElementById('newPartyNumber').value = '';
+    new bootstrap.Modal('#addPartyModal').show();
 }
 
 async function saveParty() {
     const isSingle = document.getElementById('single-party-tab').classList.contains('active');
     const btn = document.getElementById('btnSaveParty');
-    
+
     btn.disabled = true;
     const originalHTML = btn.innerHTML;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...';
@@ -605,6 +708,7 @@ async function saveParty() {
                 bootstrap.Modal.getInstance(document.getElementById('addPartyModal')).hide();
             } else {
                 alert("กรุณาระบุชื่อพรรคการเมือง");
+                return;
             }
         } else {
             const bulkText = document.getElementById('bulkPartyNames').value;
@@ -663,14 +767,14 @@ function renderCharts(partyData, regionData) {
     const commonOptions = {
         responsive: true,
         maintainAspectRatio: false, // จะใช้การล็อคความสูงจาก container แทน
-        plugins: { 
-            legend: { 
-                position: 'bottom', 
-                labels: { 
-                    usePointStyle: true, 
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    usePointStyle: true,
                     padding: 20,
-                    font: { family: 'Sarabun', size: 12 } 
-                } 
+                    font: { family: 'Sarabun', size: 12 }
+                }
             },
             tooltip: { bodyFont: { family: 'Sarabun' }, titleFont: { family: 'Sarabun' } }
         }
@@ -705,13 +809,13 @@ function renderCharts(partyData, regionData) {
                 borderRadius: 8, barThickness: 25
             }]
         },
-        options: { 
-            ...commonOptions, 
+        options: {
+            ...commonOptions,
             maintainAspectRatio: false,
-            scales: { 
+            scales: {
                 y: { grid: { display: true, color: '#f1f5f9' }, beginAtZero: true },
                 x: { grid: { display: false } }
-            } 
+            }
         }
     });
 }
