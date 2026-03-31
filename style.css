@@ -230,3 +230,22 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary-dark); }
 
+/* 🖨️ Print Optimization */
+@media print {
+    .no-print, .sidebar, .mobile-nav, .btn, .header-card, .tab-pane:not(.active) {
+        display: none !important;
+    }
+    .main-wrapper {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .report-container {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+    }
+    body {
+        background: white !important;
+    }
+}
+
