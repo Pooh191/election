@@ -119,6 +119,14 @@ async function reloadData() {
             if (endInput && globalData.settings.endTime) {
                 endInput.value = formatDateForInput(globalData.settings.endTime);
             }
+            
+            if (globalData.settings.seatDivisor) {
+                document.getElementById('seatDivisor').value = globalData.settings.seatDivisor;
+            }
+            if (globalData.settings.seatFormula) {
+                const seatFormulaEl = document.getElementById('seatFormula');
+                if (seatFormulaEl) seatFormulaEl.value = globalData.settings.seatFormula;
+            }
         }
 
         updateUI();
@@ -227,7 +235,8 @@ function renderPartiesTable() {
     const body = document.getElementById('partyTableBody');
     const overviewBody = document.getElementById('overviewPartyBody');
     const divisor = parseFloat(document.getElementById('seatDivisor').value) || 1;
-    const formulaStr = document.getElementById('seatFormula').value;
+    const formulaEl = document.getElementById('seatFormula');
+    const formulaStr = formulaEl ? formulaEl.value : "(party * divisor) / total";
     const total = globalData.votes.length;
 
     body.innerHTML = '';
@@ -464,6 +473,37 @@ async function saveSettings() {
         await callAPI('UPDATE_SETTINGS', { startTime, endTime });
         await reloadData(); // Sync with server for certainty
         alert("บันทึกการตั้งค่าเวลาเรียบร้อยแล้ว");
+    } catch (error) {
+        alert("เกิดข้อผิดพลาด: " + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+async function saveFormula() {
+    const seatDivisor = document.getElementById('seatDivisor').value;
+    const seatFormulaEl = document.getElementById('seatFormula');
+    const seatFormula = seatFormulaEl ? seatFormulaEl.value : "(party * divisor) / total";
+
+    const btn = document.getElementById('btnSaveFormula');
+    if (!btn) return;
+
+    const originalText = btn.innerHTML;
+    try {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
+
+        // We fetch current settings from API response and map it to save all settings fields together to avoid overriding missing fields
+        const currentData = globalData.settings || {};
+        const updateData = {
+            ...currentData,
+            seatDivisor: seatDivisor,
+            seatFormula: seatFormula
+        };
+
+        await callAPI('UPDATE_SETTINGS', updateData);
+        alert("บันทึกสูตรคำนวณเรียบร้อยแล้ว");
     } catch (error) {
         alert("เกิดข้อผิดพลาด: " + error.message);
     } finally {
