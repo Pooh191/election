@@ -247,6 +247,10 @@ function renderPartiesTable() {
         partyVotes[v.party] = (partyVotes[v.party] || 0) + 1;
     });
 
+    // Calculate sum of votes for registered parties only
+    const registeredParties = (globalData.parties || []).map(p => p.name);
+    const validTotal = globalData.votes.filter(v => registeredParties.includes(v.party)).length;
+
     (globalData.parties || []).forEach(p => {
         const party = partyVotes[p.name] || 0;
         const percent = total > 0 ? ((party / total) * 100).toFixed(1) : "0.0";
@@ -254,8 +258,9 @@ function renderPartiesTable() {
         let seats = "0.00";
         if (total > 0) {
             try {
-                const calc = new Function('party', 'total', 'divisor', `return ${formulaStr}`);
-                seats = calc(party, total, divisor).toFixed(2);
+                // Provide party, total (all), validTotal (parties only), and divisor to the formula
+                const calc = new Function('party', 'total', 'validTotal', 'divisor', `return ${formulaStr}`);
+                seats = calc(party, total, validTotal, divisor).toFixed(2);
             } catch (e) {
                 seats = "Err!";
             }
@@ -289,16 +294,56 @@ function renderPartiesTable() {
         }
     });
 
+    // Add "No Vote / No Selected" row if there are such votes
+    const noVotesCount = total - validTotal;
+    if (noVotesCount > 0) {
+        const percent = total > 0 ? ((noVotesCount / total) * 100).toFixed(1) : "0.0";
+        let seats = "0.00";
+        try {
+            const calc = new Function('party', 'total', 'validTotal', 'divisor', `return ${formulaStr}`);
+            seats = calc(noVotesCount, total, validTotal, divisor).toFixed(2);
+        } catch (e) {
+            seats = "0.00";
+        }
+
+        const noVoteRow = document.createElement('tr');
+        noVoteRow.className = "table-light opacity-75";
+        noVoteRow.innerHTML = `
+            <td class="ps-4 italic text-muted" colspan="2"><i class="bi bi-slash-circle me-2"></i> ไม่ประสงค์ลงคะแนน / บัตรเสีย</td>
+            <td class="text-center"><span class="badge bg-light text-muted border px-3">${noVotesCount.toLocaleString()}</span></td>
+            <td class="text-center text-muted small">${percent}%</td>
+            <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
+            <td class="text-end pe-4"></td>
+        `;
+
+        const noVoteOverviewRow = document.createElement('tr');
+        noVoteOverviewRow.className = "table-light opacity-75";
+        noVoteOverviewRow.innerHTML = `
+            <td class="italic text-muted"><i class="bi bi-slash-circle me-2"></i> ไม่ประสงค์ลงคะแนน / อื่นๆ</td>
+            <td class="text-center"><span class="badge bg-light text-muted border px-3">${noVotesCount.toLocaleString()}</span></td>
+            <td class="text-center text-muted small">${percent}%</td>
+            <td class="text-center"><span class="badge bg-light text-muted px-3 py-2 rounded-pill fs-6">${seats}</span></td>
+        `;
+
+        body.appendChild(noVoteRow);
+        if (overviewBody) overviewBody.appendChild(noVoteOverviewRow);
+    }
+
     const displayDivisor = document.getElementById('displayDivisor');
     if (displayDivisor) displayDivisor.textContent = divisor;
     
+    // Suggest formula fix if it doesn't total to divisor
     const status = document.getElementById('calcStatus');
     if (status) {
-        status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ข้อมูลอัปเดตอัตโนมัติเรียบร้อย`;
+        status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> คำนวณจากยอดรวม ${total} คะแนน`;
+        if (noVotesCount > 0) {
+            status.innerHTML += ` <span class="text-warning small ms-2">(มีไม่ประสงค์ลงคะแนน ${noVotesCount})</span>`;
+        }
         status.classList.add('animate__animated', 'animate__fadeIn');
         setTimeout(() => status.classList.remove('animate__animated', 'animate__fadeIn'), 1000);
     }
 }
+
 
 
 function renderVotesLogTable() {
