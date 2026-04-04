@@ -277,48 +277,68 @@ function renderPartiesTable() {
     let sumListSeats = 0;
     let sumTotalSeats = 0;
 
-    (globalData.parties || []).forEach(p => {
-        const party = partyVotes[p.name] || 0;
-        const percent = total > 0 ? ((party / total) * 100).toFixed(1) : "0.0";
-
-        let seats = "0";
+    // 1. Pre-calculate Party List Seats using Largest Remainder Method (Hare-Niemeyer)
+    // We use the custom formula to get "raw" shares, then distribute integer parts and remainders.
+    const activeParties = globalData.parties || [];
+    const partySeatData = activeParties.map(p => {
+        const votesCount = partyVotes[p.name] || 0;
+        let raw = 0;
         if (total > 0) {
             try {
-                // ให้เลือกใช้ validTotal เป็นหลักเพื่อให้ยอดรวมพรรคได้ใกล้เคียง 11 (divisor) ที่สุด
-                const calc = new Function('party', 'total', 'validTotal', 'divisor', `return ${formulaStr}`);
-                
-                // ถ้้าผู้ใช้ไม่ได้แก้สูตรเอง ให้ใช้ validTotal แทน total อัตโนมัติเพื่อให้ปัดเศษแล้วลงล็อค 11
                 let effectiveFormula = formulaStr;
+                // If it's the default formula, we use validTotal by default to exclude "No Vote"
                 if (effectiveFormula === "(party * divisor) / total") {
                     effectiveFormula = "(party * divisor) / validTotal";
                 }
-                
                 const finalCalc = new Function('party', 'total', 'validTotal', 'divisor', `return ${effectiveFormula}`);
-                const rawSeats = finalCalc(party, total, validTotal, divisor);
-                
-                // ปัดเศษตามคำขอ (Round to nearest integer)
-                seats = Math.round(rawSeats);
-            } catch (e) {
-                seats = "Err!";
-            }
+                raw = finalCalc(votesCount, total, validTotal, divisor);
+            } catch (e) { raw = 0; }
         }
+        return {
+            id: p.id,
+            name: p.name,
+            votes: votesCount,
+            raw: raw,
+            seats: Math.floor(raw),
+            remainder: raw - Math.floor(raw)
+        };
+    });
 
+    let assignedSeats = partySeatData.reduce((sum, p) => sum + p.seats, 0);
+    let remainingSeats = Math.floor(divisor) - assignedSeats;
 
+    if (remainingSeats > 0) {
+        // Sort by remainder descending, then by votes descending to break ties
+        const sortedForRemainder = [...partySeatData].sort((a, b) => b.remainder - a.remainder || b.votes - a.votes);
+        for (let i = 0; i < remainingSeats && i < sortedForRemainder.length; i++) {
+            const index = partySeatData.findIndex(p => p.id === sortedForRemainder[i].id);
+            if (index !== -1) partySeatData[index].seats++;
+        }
+    }
+
+    sumPartyVotes = 0;
+    sumRegSeats = 0;
+    sumListSeats = 0;
+    sumTotalSeats = 0;
+
+    partySeatData.forEach(pData => {
+        const p = activeParties.find(x => x.id === pData.id);
+        const partyCount = pData.votes;
+        const seats = pData.seats;
         const regSeats = regionWinnerSeats[p.name] || 0;
-        const totalSeats = parseInt(regSeats) + parseInt(seats);
+        const totalSeats = regSeats + seats;
 
-        sumPartyVotes += party;
+        sumPartyVotes += partyCount;
         sumRegSeats += regSeats;
-        sumListSeats += (parseInt(seats) || 0);
+        sumListSeats += seats;
         sumTotalSeats += totalSeats;
-
 
         // 1. Render in Parties Tab
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="ps-4 fw-bold text-primary">เบอร์ ${p.number || '-'}</td>
             <td class="fw-bold text-bold">${p.name}</td>
-            <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
+            <td class="text-center"><span class="badge bg-light text-dark border px-3">${partyCount.toLocaleString()}</span></td>
             <td class="text-center"><span class="fw-bold">${regSeats}</span></td>
             <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
             <td class="text-center"><span class="fw-bold text-primary" style="font-size: 1.1rem;">${totalSeats}</span></td>
@@ -334,14 +354,13 @@ function renderPartiesTable() {
             const overviewRow = document.createElement('tr');
             overviewRow.innerHTML = `
                 <td class="fw-bold"><span class="text-primary me-2">เบอร์ ${p.number || '-'}</span> ${p.name}</td>
-                <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
+                <td class="text-center"><span class="badge bg-light text-dark border px-3">${partyCount.toLocaleString()}</span></td>
                 <td class="text-center"><span class="fw-bold text-muted">${regSeats}</span></td>
                 <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
                 <td class="text-center"><span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill fs-6">${totalSeats}</span></td>
             `;
             overviewBody.appendChild(overviewRow);
         }
-
     });
 
     // Add "No Vote / No Selected" row if there are such votes
@@ -408,8 +427,7 @@ function renderPartiesTable() {
 
 
 
-    const displayDivisor = document.getElementById('displayDivisor');
-    if (displayDivisor) displayDivisor.textContent = divisor;
+    // displayDivisor removed in favor of editable seatFormula input
     
     // Suggest formula fix if it doesn't total to divisor
     const status = document.getElementById('calcStatus');
