@@ -251,6 +251,29 @@ function renderPartiesTable() {
     const registeredParties = (globalData.parties || []).map(p => p.name);
     const validTotal = globalData.votes.filter(v => registeredParties.includes(v.party)).length;
 
+    // Calculate Regional Winners (ส.ส. เขต)
+    const regionWinnerSeats = {}; // party name -> seat count
+    const regions = ['central', 'north', 'south', 'east'];
+    const votes = globalData.votes || [];
+    const candidates = globalData.candidates || [];
+
+    regions.forEach(r => {
+        const rVotes = votes.filter(v => v.region === r && v.candidate && v.candidate !== 'ไม่ประสงค์ลงคะแนน' && v.candidate !== 'ไม่ได้เลือก');
+        if (rVotes.length > 0) {
+            const counts = {};
+            rVotes.forEach(v => counts[v.candidate] = (counts[v.candidate] || 0) + 1);
+            // ค้นหาผู้ที่มีคะแนนสูงสุดในเขตนั้น
+            const winnerName = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+            if (counts[winnerName] > 0) {
+                const cand = candidates.find(c => c.name === winnerName);
+                if (cand && cand.party) {
+                    regionWinnerSeats[cand.party] = (regionWinnerSeats[cand.party] || 0) + 1;
+                }
+            }
+        }
+    });
+
+
     (globalData.parties || []).forEach(p => {
         const party = partyVotes[p.name] || 0;
         const percent = total > 0 ? ((party / total) * 100).toFixed(1) : "0.0";
@@ -278,14 +301,18 @@ function renderPartiesTable() {
         }
 
 
+        const regSeats = regionWinnerSeats[p.name] || 0;
+        const totalSeats = parseInt(regSeats) + parseInt(seats);
+
         // 1. Render in Parties Tab
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="ps-4 fw-bold text-primary">เบอร์ ${p.number || '-'}</td>
             <td class="fw-bold text-bold">${p.name}</td>
             <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
-            <td class="text-center text-muted small">${percent}%</td>
-            <td class="text-center"><span class="fw-bold text-primary" style="font-size: 1.1rem;">${seats}</span></td>
+            <td class="text-center"><span class="fw-bold">${regSeats}</span></td>
+            <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
+            <td class="text-center"><span class="fw-bold text-primary" style="font-size: 1.1rem;">${totalSeats}</span></td>
             <td class="text-end pe-4">
                 <button class="btn btn-sm btn-outline-primary border-0 rounded-3 p-2 me-1" onclick="editEntry('PARTY', '${p.id}')"><i class="bi bi-pencil-square"></i></button>
                 <button class="btn btn-sm btn-outline-danger border-0 rounded-3 p-2" onclick="deleteEntry('PARTY', '${p.id}')"><i class="bi bi-trash3-fill"></i></button>
@@ -299,11 +326,13 @@ function renderPartiesTable() {
             overviewRow.innerHTML = `
                 <td class="fw-bold"><span class="text-primary me-2">เบอร์ ${p.number || '-'}</span> ${p.name}</td>
                 <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
-                <td class="text-center text-muted small">${percent}%</td>
-                <td class="text-center"><span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill fs-6">${seats}</span></td>
+                <td class="text-center"><span class="fw-bold text-muted">${regSeats}</span></td>
+                <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
+                <td class="text-center"><span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill fs-6">${totalSeats}</span></td>
             `;
             overviewBody.appendChild(overviewRow);
         }
+
     });
 
     // Add "No Vote / No Selected" row if there are such votes
@@ -318,7 +347,8 @@ function renderPartiesTable() {
         noVoteRow.innerHTML = `
             <td class="ps-4 italic text-muted" colspan="2"><i class="bi bi-slash-circle me-2"></i> ไม่ประสงค์ลงคะแนน / บัตรเสีย</td>
             <td class="text-center"><span class="badge bg-light text-muted border px-3">${noVotesCount.toLocaleString()}</span></td>
-            <td class="text-center text-muted small">${percent}%</td>
+            <td class="text-center">-</td>
+            <td class="text-center">-</td>
             <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
             <td class="text-end pe-4"></td>
         `;
@@ -328,9 +358,11 @@ function renderPartiesTable() {
         noVoteOverviewRow.innerHTML = `
             <td class="italic text-muted"><i class="bi bi-slash-circle me-2"></i> ไม่ประสงค์ลงคะแนน / อื่นๆ</td>
             <td class="text-center"><span class="badge bg-light text-muted border px-3">${noVotesCount.toLocaleString()}</span></td>
-            <td class="text-center text-muted small">${percent}%</td>
+            <td class="text-center">-</td>
+            <td class="text-center">-</td>
             <td class="text-center"><span class="badge bg-light text-muted px-3 py-2 rounded-pill fs-6">${seats}</span></td>
         `;
+
 
         body.appendChild(noVoteRow);
         if (overviewBody) overviewBody.appendChild(noVoteOverviewRow);
