@@ -272,7 +272,10 @@ function renderPartiesTable() {
             }
         }
     });
-
+    let sumPartyVotes = 0;
+    let sumRegSeats = 0;
+    let sumListSeats = 0;
+    let sumTotalSeats = 0;
 
     (globalData.parties || []).forEach(p => {
         const party = partyVotes[p.name] || 0;
@@ -303,6 +306,12 @@ function renderPartiesTable() {
 
         const regSeats = regionWinnerSeats[p.name] || 0;
         const totalSeats = parseInt(regSeats) + parseInt(seats);
+
+        sumPartyVotes += party;
+        sumRegSeats += regSeats;
+        sumListSeats += (parseInt(seats) || 0);
+        sumTotalSeats += totalSeats;
+
 
         // 1. Render in Parties Tab
         const row = document.createElement('tr');
@@ -339,8 +348,7 @@ function renderPartiesTable() {
     const noVotesCount = total - validTotal;
     if (noVotesCount > 0) {
         const percent = total > 0 ? ((noVotesCount / total) * 100).toFixed(1) : "0.0";
-        let seats = "-"; // ไม่ต้องมีเก้าอี้ตามคำสั่ง
-
+        let noVoteSeats = "-"; // ไม่ต้องมีเก้าอี้ตามคำสั่ง
 
         const noVoteRow = document.createElement('tr');
         noVoteRow.className = "table-light opacity-75";
@@ -349,7 +357,7 @@ function renderPartiesTable() {
             <td class="text-center"><span class="badge bg-light text-muted border px-3">${noVotesCount.toLocaleString()}</span></td>
             <td class="text-center">-</td>
             <td class="text-center">-</td>
-            <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
+            <td class="text-center"><span class="fw-bold text-muted">${noVoteSeats}</span></td>
             <td class="text-end pe-4"></td>
         `;
 
@@ -360,13 +368,45 @@ function renderPartiesTable() {
             <td class="text-center"><span class="badge bg-light text-muted border px-3">${noVotesCount.toLocaleString()}</span></td>
             <td class="text-center">-</td>
             <td class="text-center">-</td>
-            <td class="text-center"><span class="badge bg-light text-muted px-3 py-2 rounded-pill fs-6">${seats}</span></td>
+            <td class="text-center"><span class="badge bg-light text-muted px-3 py-2 rounded-pill fs-6">${noVoteSeats}</span></td>
         `;
-
 
         body.appendChild(noVoteRow);
         if (overviewBody) overviewBody.appendChild(noVoteOverviewRow);
+        
+        // Include in total votes
+        sumPartyVotes += noVotesCount;
     }
+
+    // Add Grand Total Row (Everything)
+    const totalRow = document.createElement('tr');
+    totalRow.className = "table-secondary fw-bold border-top border-2";
+    totalRow.innerHTML = `
+        <td class="ps-4" colspan="2"><i class="bi bi-calculator me-2"></i> รวมทั้งหมด (พรรค + ไม่ประสงค์)</td>
+        <td class="text-center"><span class="badge bg-white text-dark border px-3">${sumPartyVotes.toLocaleString()}</span></td>
+        <td class="text-center">${sumRegSeats}</td>
+        <td class="text-center">${sumListSeats}</td>
+        <td class="text-center"><span class="text-primary" style="font-size: 1.1rem;">${sumTotalSeats}</span></td>
+        <td></td>
+    `;
+    body.appendChild(totalRow);
+
+    if (overviewBody) {
+        const overviewTotalRow = document.createElement('tr');
+        overviewTotalRow.className = "table-secondary fw-bold border-top border-2";
+        overviewTotalRow.innerHTML = `
+            <td><i class="bi bi-calculator me-2"></i> รวมทั้งหมด</td>
+            <td class="text-center"><span class="badge bg-white text-dark border px-3">${sumPartyVotes.toLocaleString()}</span></td>
+            <td class="text-center">${sumRegSeats}</td>
+            <td class="text-center">${sumListSeats}</td>
+            <td class="text-center"><span class="badge bg-primary px-3 py-2 rounded-pill fs-6">${sumTotalSeats}</span></td>
+        `;
+        overviewBody.appendChild(overviewTotalRow);
+    }
+
+
+
+
 
     const displayDivisor = document.getElementById('displayDivisor');
     if (displayDivisor) displayDivisor.textContent = divisor;
