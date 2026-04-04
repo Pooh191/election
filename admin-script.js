@@ -1,750 +1,985 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ศูนย์ควบคุมการเลือกตั้ง V3 - Smart Admin</title>
-    
-    <!-- Bootstrap 5 -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- Icons & Charts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    
-    <link rel="stylesheet" href="style.css">
-    
-    <style>
-        .sidebar {
-            width: 280px;
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(25px);
-            height: calc(100vh - 40px);
-            position: fixed;
-            left: 20px;
-            top: 20px;
-            border-radius: 32px;
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            padding: 2.5rem 1.5rem;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
-        }
-        .main-wrapper {
-            margin-left: 320px;
-            padding: 3rem;
-            min-height: 100vh;
-        }
-        .nav-link-custom {
-            padding: 1.1rem 1.75rem;
-            border-radius: 20px;
-            color: #64748b;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            margin-bottom: 0.85rem;
-            text-decoration: none;
-        }
-        .nav-link-custom:hover {
-            background: #f8fafc;
-            color: var(--primary);
-            padding-left: 2.25rem;
-        }
-        .nav-link-custom.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);
-        }
-        .nav-link-custom i {
-            margin-right: 1.25rem;
-            font-size: 1.4rem;
-        }
+/* Smart Election Admin Control V3 Premium */
 
-        .metric-card-fancy {
-            background: white;
-            border-radius: 32px;
-            padding: 2.5rem;
-            border: 1px solid rgba(0,0,0,0.02);
-            transition: all 0.4s ease;
-            position: relative;
-            z-index: 1;
-        }
-        .metric-card-fancy:hover {
-            transform: translateY(-12px);
-            box-shadow: 0 40px 80px -15px rgba(0,0,0,0.1);
-        }
-        .metric-icon-wrap {
-            width: 64px; height: 64px;
-            border-radius: 22px;
-            display: flex; align-items: center; justify-content: center;
-            margin-bottom: 1.75rem;
-        }
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxrBQ5yDzwfAmyTWgNW2ZFXMD99MQftiuLlPdSGyEHCO9_LqgXU4V67GJhQCxQ-s_je6w/exec";
 
-        @media (max-width: 991.98px) {
-            .sidebar { display: none; }
-            .main-wrapper {
-                margin-left: 0;
-                padding: 1rem;
-                padding-bottom: 8rem;
+let partyChart, regionChart;
+let globalData = { voters: [], candidates: [], parties: [], votes: [] };
+
+// 1. Authentication V3 (SHA-256 Hashing)
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkAuth() {
+    const input = document.getElementById('adminPass').value;
+    const inputHash = await sha256(input);
+
+    const secureHash = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
+
+    if (inputHash === secureHash) {
+        loginSuccess();
+    } else {
+        const err = document.getElementById('authError');
+        err.classList.remove('d-none');
+        err.classList.add('animate__animated', 'animate__shakeX');
+        setTimeout(() => err.classList.remove('animate__shakeX'), 500);
+    }
+}
+
+function loginSuccess() {
+    sessionStorage.setItem('admin_auth', 'true');
+    document.getElementById('authOverlay').style.opacity = '0';
+    setTimeout(() => {
+        document.getElementById('authOverlay').classList.add('d-none');
+        document.getElementById('adminContent').classList.remove('d-none');
+        reloadData();
+    }, 400);
+}
+
+function logout() {
+    sessionStorage.removeItem('admin_auth');
+    location.reload();
+}
+
+// Auto-login Check on Refresh
+window.onload = () => {
+    if (sessionStorage.getItem('admin_auth') === 'true') {
+        document.getElementById('authOverlay').classList.add('d-none');
+        document.getElementById('adminContent').classList.remove('d-none');
+        reloadData();
+    }
+
+    // 🔀 Tab Sychronizer and Fix for Mobile Tabs
+    document.querySelectorAll('[data-bs-toggle="pill"]').forEach(btn => {
+        btn.addEventListener('show.bs.tab', function (e) {
+            const target = e.target.getAttribute('data-bs-target');
+            // Sync all identical buttons (Sidebar vs Mobile)
+            document.querySelectorAll(`[data-bs-target="${target}"]`).forEach(el => {
+                if (el !== e.target) el.classList.add('active');
+            });
+            // Untoggle others
+            const others = document.querySelectorAll(`[data-bs-toggle="pill"]:not([data-bs-target="${target}"])`);
+            others.forEach(el => el.classList.remove('active'));
+        });
+
+        // Manual Trigger for Mobile devices that might miss Bootstrap event
+        btn.onclick = function (e) {
+            const targetId = this.getAttribute('data-bs-target').substring(1);
+            const pane = document.getElementById(targetId);
+            if (pane) {
+                // Remove active from all panes
+                document.querySelectorAll('.tab-pane').forEach(p => {
+                    p.classList.remove('show', 'active');
+                });
+                // Add active to target pane
+                pane.classList.add('show', 'active');
+
+                // Sync UI Buttons
+                const allTriggers = document.querySelectorAll('[data-bs-toggle="pill"]');
+                allTriggers.forEach(t => t.classList.remove('active'));
+                document.querySelectorAll(`[data-bs-target="#${targetId}"]`).forEach(t => t.classList.add('active'));
             }
-            .mobile-nav .nav-link-custom {
-                padding: 0.75rem 0.25rem !important;
-                border-radius: 16px !important;
-                margin-bottom: 0 !important;
-                justify-content: center !important;
-                min-height: 60px;
+        };
+    });
+};
+
+// 2. Data Fetching
+async function reloadData() {
+    showTableLoaders();
+    try {
+        const response = await fetch(SCRIPT_URL);
+        globalData = await response.json();
+
+        // Populate Settings UI
+        if (globalData.settings) {
+            const startInput = document.getElementById('startTime');
+            const endInput = document.getElementById('endTime');
+
+            // Format dates for datetime-local input (YYYY-MM-DDTHH:mm)
+            const formatDateForInput = (dateStr) => {
+                if (!dateStr) return "";
+                if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dateStr)) return dateStr;
+                const d = new Date(dateStr);
+                if (isNaN(d.getTime())) return dateStr;
+                const pad = (n) => n.toString().padStart(2, '0');
+                const y = d.getFullYear();
+                const m = pad(d.getMonth() + 1);
+                const day = pad(d.getDate());
+                const h = pad(d.getHours());
+                const min = pad(d.getMinutes());
+                return `${y}-${m}-${day}T${h}:${min}`;
+            };
+
+            if (startInput && globalData.settings.startTime) {
+                startInput.value = formatDateForInput(globalData.settings.startTime);
             }
-            .mobile-nav .nav-link-custom i {
-                margin-right: 0 !important;
-                margin-bottom: 4px !important;
-                font-size: 1.25rem !important;
+            if (endInput && globalData.settings.endTime) {
+                endInput.value = formatDateForInput(globalData.settings.endTime);
             }
-        }
-        
-        /* Fix for datetime-local overlap */
-        input[type="datetime-local"].form-control {
-            min-height: 2.5rem;
-            line-height: 1.5;
-        }
-        .form-control.position-relative label {
-            pointer-events: none;
-            z-index: 2;
-        }
-
-        .auth-overlay {
-            transition: all 0.5s ease;
-        }
-        .auth-overlay.d-none {
-            pointer-events: none;
-        }
-        /* Pulse Animation */
-        .pulse-dot {
-            width: 8px; height: 8px;
-            background: #10b981;
-            border-radius: 50%;
-            position: relative;
-        }
-        .pulse-dot::after {
-            content: "";
-            position: absolute;
-            width: 100%; height: 100%;
-            background: inherit;
-            border-radius: inherit;
-            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-        }
-        @keyframes pulse-ring {
-            0% { transform: scale(.33); opacity: 0.8; }
-            80%, 100% { transform: scale(2.5); opacity: 0; }
-        }
-        .bg-success-soft { background: rgba(16, 185, 129, 0.1); }
-        .bg-primary-soft { background: rgba(79, 70, 229, 0.1); }
-        .bg-danger-soft { background: rgba(239, 68, 68, 0.1); }
-        .max-w-300 { max-width: 300px; }
-    </style>
-</head>
-<body class="bg-main">
-
-    <!-- Auth V3 Master Login -->
-    <div id="authOverlay" class="auth-overlay d-flex align-items-center justify-content-center min-vh-100 position-fixed top-0 start-0 w-100 bg-main z-3">
-        <div class="login-card text-center p-5 bg-white rounded-5 shadow-lg mx-3" style="width: 440px; max-width: 100%;">
-            <div class="mb-4">
-                <div class="bg-primary-soft p-4 rounded-circle d-inline-flex">
-                    <i class="bi bi-person-lock fs-1 text-primary"></i>
-                </div>
-            </div>
-            <h2 class="fw-bold mb-1">ศูนย์ควบคุมแอดมิน</h2>
-            <p class="text-muted mb-4 small">กรุณาระบุรหัสผ่านเพื่อเข้าใช้งานระบบ</p>
-            <div class="mb-3 px-2">
-                <input type="password" id="adminPass" class="form-control form-control-lg border-2 text-center rounded-4 shadow-none" placeholder="••••••••" style="font-size:1.5rem; letter-spacing:8px;" onkeydown="if(event.key==='Enter') checkAuth()">
-            </div>
-            <button class="btn btn-primary-custom w-100 py-3 rounded-4 fw-bold mt-2" onclick="checkAuth()">
-                เข้าสู่ระบบ
-            </button>
-            <p id="authError" class="text-danger mt-3 fw-medium d-none">รหัสผ่านไม่ถูกต้อง</p>
-        </div>
-    </div>
-
-    <!-- Main Dashboard V3 -->
-    <div id="adminContent" class="d-none">
-        
-        <!-- 📱 Mobile Bottom Nav -->
-        <nav class="mobile-nav d-lg-none position-fixed bottom-0 start-0 w-100 bg-white border-top z-1050 px-3 py-2 d-flex justify-content-between shadow-lg" style="border-radius: 28px 28px 0 0; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,0.1) !important;">
-            <a href="#dashboard" class="nav-link-custom text-center p-2 mb-0 flex-fill active" data-bs-toggle="pill" data-bs-target="#dashboard" style="flex-direction: column;">
-                <i class="bi bi-grid-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">หน้าแรก</span>
-            </a>
-            <a href="#voters" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#voters" style="flex-direction: column;">
-                <i class="bi bi-people-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ผู้มีสิทธิ</span>
-            </a>
-            <a href="#candidates" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#candidates" style="flex-direction: column;">
-                <i class="bi bi-person-badge-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ผู้สมัคร</span>
-            </a>
-            <a href="#parties" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#parties" style="flex-direction: column;">
-                <i class="bi bi-flag-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">พรรค</span>
-            </a>
-            <a href="#votes-log" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#votes-log" style="flex-direction: column;">
-                <i class="bi bi-journal-text mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ประวัติ</span>
-            </a>
-            <a href="#full-report" class="nav-link-custom text-center p-2 mb-0 flex-fill" data-bs-toggle="pill" data-bs-target="#full-report" style="flex-direction: column;">
-                <i class="bi bi-file-earmark-bar-graph mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">สรุปผล</span>
-            </a>
-            <a href="#settings" class="nav-link-custom text-center p-2 mb-0 flex-fill text-danger" data-bs-toggle="pill" data-bs-target="#settings" style="flex-direction: column;">
-                <i class="bi bi-gear-fill mb-1 fs-5 m-0"></i><span style="font-size: 0.65rem;">ตั้งค่า</span>
-            </a>
-        </nav>
-
-        <!-- 💻 Desktop Sidebar -->
-        <div class="sidebar d-none d-lg-flex">
-            <div class="d-flex align-items-center mb-5">
-                <i class="bi bi-intersect text-primary fs-2 me-3"></i>
-                <h4 class="fw-bold mb-0">SmartAdmin</h4>
-            </div>
             
-            <nav class="nav flex-column flex-grow-1 header-nav">
-                <a href="#dashboard" class="nav-link-custom active" data-bs-toggle="pill" data-bs-target="#dashboard">
-                    <i class="bi bi-grid-fill"></i> แผงควบคุม
-                </a>
-                <a href="#voters" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#voters">
-                    <i class="bi bi-people-fill"></i> ผู้มีใช้สิทธิ
-                </a>
-                <a href="#candidates" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#candidates">
-                    <i class="bi bi-person-badge-fill"></i> ผู้สมัคร ส.ส.
-                </a>
-                <a href="#parties" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#parties">
-                    <i class="bi bi-flag-fill"></i> พรรคการเมือง
-                </a>
-                <a href="#votes-log" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#votes-log">
-                    <i class="bi bi-journal-text"></i> ประวัติการลงคะแนน
-                </a>
-                <a href="#full-report" class="nav-link-custom" data-bs-toggle="pill" data-bs-target="#full-report">
-                    <i class="bi bi-file-earmark-bar-graph"></i> สรุปผลรายงานเว็บ
-                </a>
-                <div class="mt-auto">
-                    <a href="#settings" class="nav-link-custom text-danger" data-bs-toggle="pill" data-bs-target="#settings">
-                        <i class="bi bi-gear-fill"></i> ตั้งค่า
-                    </a>
-                    <button class="nav-link-custom border-0 bg-transparent w-100" onclick="logout()">
-                        <i class="bi bi-box-arrow-left"></i> ย้อนกลับ
-                    </button>
-                </div>
-            </nav>
-        </div>
+            if (globalData.settings.seatDivisor) {
+                document.getElementById('seatDivisor').value = globalData.settings.seatDivisor;
+            }
+            if (globalData.settings.seatFormula) {
+                const seatFormulaEl = document.getElementById('seatFormula');
+                if (seatFormulaEl) seatFormulaEl.value = globalData.settings.seatFormula;
+            }
+        }
 
-        <div class="main-wrapper">
-            <div class="tab-content">
+        updateUI();
+    } catch (err) {
+        console.error("API Fetch Error:", err);
+    }
+}
+
+function showTableLoaders() {
+    const loadingHTML = `<tr><td colspan="5" class="text-center py-5"><div class="spinner-border text-primary spinner-border-sm me-2"></div> กำลังโหลดข้อมูล...</td></tr>`;
+    document.getElementById('voterTableBody').innerHTML = loadingHTML;
+    document.getElementById('candidateTableBody').innerHTML = loadingHTML;
+    document.getElementById('partyTableBody').innerHTML = loadingHTML;
+}
+
+// 3. UI Rendering V3
+function updateUI() {
+    const votes = globalData.votes || [];
+    const voters = globalData.voters || [];
+
+    // Updates Metrics
+    document.getElementById('totalVotes').textContent = votes.length.toLocaleString();
+    document.getElementById('totalVoters').textContent = voters.length.toLocaleString();
+
+    const rate = voters.length > 0 ? Math.round((votes.length / voters.length) * 100) : 0;
+    document.getElementById('voteRate').textContent = rate + "%";
+
+    // Animate Progress Bar
+    const progressBar = document.getElementById('rateProgress');
+    if (progressBar) {
+        progressBar.style.width = rate + "%";
+        if (rate > 80) progressBar.className = "progress-bar bg-success";
+        else if (rate > 40) progressBar.className = "progress-bar bg-primary";
+        else progressBar.className = "progress-bar bg-warning";
+    }
+
+    // Chart Data Preparation
+    const partyCounts = {};
+    const regionCounts = { 'east': 0, 'south': 0, 'north': 0, 'central': 0 };
+    votes.forEach(v => {
+        partyCounts[v.party] = (partyCounts[v.party] || 0) + 1;
+        if (regionCounts.hasOwnProperty(v.region)) regionCounts[v.region]++;
+    });
+    renderCharts(partyCounts, regionCounts);
+
+    // Render Tables
+    renderVotersTable();
+    renderCandidatesTable();
+    renderPartiesTable();
+    renderVotesLogTable();
+    renderCandidateSummary();
+    renderFullReport();
+}
+
+let editingId = null;
+
+function renderVotersTable() {
+    const body = document.getElementById('voterTableBody');
+    body.innerHTML = '';
+
+    // Create a Set for O(1) loop up
+    const votedNames = new Set((globalData.votes || []).map(v => v.voter));
+
+    (globalData.voters || []).slice().reverse().forEach(v => {
+        const hasVoted = votedNames.has(v.name);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="ps-4"><div class="avatar-sm bg-primary-soft text-primary rounded-circle d-flex align-items-center justify-content-center" style="width:38px; height:38px;"><i class="bi bi-person-fill"></i></div></td>
+            <td><div class="fw-bold text-bold">${v.name}</div><div class="small text-muted">ID: ${v.id}</div></td>
+            <td><span class="badge bg-light text-dark rounded-pill px-3 fw-semibold border">${formatRegionName(v.region)}</span></td>
+            <td>
+                ${hasVoted ? '<span class="text-primary fw-bold small"><i class="bi bi-check-circle-fill me-1"></i> ใช้สิทธิแล้ว</span>' : '<span class="text-muted small fw-medium"><i class="bi bi-clock me-1"></i> ยังไม่มา</span>'}
+            </td>
+            <td class="text-end pe-4">
+                <button class="btn btn-sm btn-outline-primary border-0 rounded-3 p-2 me-1" onclick="editEntry('VOTER', '${v.id}')"><i class="bi bi-pencil-square"></i></button>
+                <button class="btn btn-sm btn-outline-danger border-0 rounded-3 p-2" onclick="deleteEntry('VOTER', '${v.id}')"><i class="bi bi-trash3-fill"></i></button>
+            </td>
+        `;
+        body.appendChild(row);
+    });
+}
+
+function renderCandidatesTable() {
+    const body = document.getElementById('candidateTableBody');
+    body.innerHTML = '';
+
+    (globalData.candidates || []).forEach(c => {
+        // ดึงค่ามาพักไว้ก่อนเพื่อความชัวร์ (เผื่อกรณีคอลัมน์ใน Sheet สลับกัน)
+        // เราจะอ้างอิงจากคีย์ที่ดึงมาจาก Sheet Header โดยตรง
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="ps-4 fw-bold text-primary">เบอร์ ${c.number || '-'}</td>
+            <td class="fw-bold text-bold">${c.name || 'ไม่มีชื่อ'}</td>
+            <td><span class="badge bg-info-soft text-info rounded-pill px-3 fw-bold">${c.party || 'ไม่ระบุพรรค'}</span></td>
+            <td><span class="badge bg-light text-dark rounded-pill px-3 fw-semibold border">${formatRegionName(c.region)}</span></td>
+            <td class="text-end pe-4">
+                <button class="btn btn-sm btn-outline-primary border-0 rounded-3 p-2 me-1" onclick="editEntry('CANDIDATE', '${c.id}')"><i class="bi bi-pencil-square"></i></button>
+                <button class="btn btn-sm btn-outline-danger border-0 rounded-3 p-2" onclick="deleteEntry('CANDIDATE', '${c.id}')"><i class="bi bi-trash3-fill"></i></button>
+            </td>
+        `;
+        body.appendChild(row);
+    });
+}
+
+function renderPartiesTable() {
+    const body = document.getElementById('partyTableBody');
+    const overviewBody = document.getElementById('overviewPartyBody');
+    const divisor = parseFloat(document.getElementById('seatDivisor').value) || 1;
+    const formulaEl = document.getElementById('seatFormula');
+    const formulaStr = formulaEl ? formulaEl.value : "(party * divisor) / total";
+    const total = globalData.votes.length;
+
+    body.innerHTML = '';
+    if (overviewBody) overviewBody.innerHTML = '';
+
+    const partyVotes = {};
+    globalData.votes.forEach(v => {
+        partyVotes[v.party] = (partyVotes[v.party] || 0) + 1;
+    });
+
+    // Calculate sum of votes for registered parties only
+    const registeredParties = (globalData.parties || []).map(p => p.name);
+    const validTotal = globalData.votes.filter(v => registeredParties.includes(v.party)).length;
+
+    // Calculate Regional Winners (ส.ส. เขต)
+    const regionWinnerSeats = {}; // party name -> seat count
+    const regions = ['central', 'north', 'south', 'east'];
+    const votes = globalData.votes || [];
+    const candidates = globalData.candidates || [];
+
+    regions.forEach(r => {
+        const rVotes = votes.filter(v => v.region === r && v.candidate && v.candidate !== 'ไม่ประสงค์ลงคะแนน' && v.candidate !== 'ไม่ได้เลือก');
+        if (rVotes.length > 0) {
+            const counts = {};
+            rVotes.forEach(v => counts[v.candidate] = (counts[v.candidate] || 0) + 1);
+            // ค้นหาผู้ที่มีคะแนนสูงสุดในเขตนั้น
+            const winnerName = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+            if (counts[winnerName] > 0) {
+                const cand = candidates.find(c => c.name === winnerName);
+                if (cand && cand.party) {
+                    regionWinnerSeats[cand.party] = (regionWinnerSeats[cand.party] || 0) + 1;
+                }
+            }
+        }
+    });
+    let sumPartyVotes = 0;
+    let sumRegSeats = 0;
+    let sumListSeats = 0;
+    let sumTotalSeats = 0;
+
+    (globalData.parties || []).forEach(p => {
+        const party = partyVotes[p.name] || 0;
+        const percent = total > 0 ? ((party / total) * 100).toFixed(1) : "0.0";
+
+        let seats = "0";
+        if (total > 0) {
+            try {
+                // ให้เลือกใช้ validTotal เป็นหลักเพื่อให้ยอดรวมพรรคได้ใกล้เคียง 11 (divisor) ที่สุด
+                const calc = new Function('party', 'total', 'validTotal', 'divisor', `return ${formulaStr}`);
                 
-                <div class="tab-pane fade show active" id="dashboard">
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 gap-3">
-                        <div>
-                            <div class="d-flex align-items-center mb-1">
-                                <h1 class="display-6 fw-bold text-bold mb-0">แดชบอร์ดหลัก</h1>
-                                <span class="badge bg-success-soft text-success border border-success border-opacity-10 ms-3 rounded-pill px-3 py-2 small d-flex align-items-center">
-                                    <span class="pulse-dot me-2"></span> Real-time Live
-                                </span>
-                            </div>
-                            <p class="text-muted mb-0">ยินดีต้อนรับสู่ศูนย์ควบคุมจัดการผลการเลือกตั้งอัจฉริยะ</p>
-                        </div>
-                        <div class="d-flex gap-2">
-                             <button class="btn btn-outline-custom rounded-pill px-4" onclick="reloadData()">
-                                <i class="bi bi-arrow-repeat me-2"></i> รีเฟรชข้อมูล
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="row g-4 mb-5">
-                        <div class="col-md-4">
-                            <div class="metric-card-fancy">
-                                <div class="metric-icon-wrap bg-primary-soft text-primary">
-                                    <i class="bi bi-mailbox fs-3"></i>
-                                </div>
-                                <h5 class="text-muted small fw-bold mb-1">คะแนนรวมทั้งหมด</h5>
-                                <h2 id="totalVotes" class="fw-bold display-5 mb-0">0</h2>
-                                <div class="mt-3 small text-success fw-bold"><i class="bi bi-graph-up-arrow me-1"></i> อัปเดตล่าสุด: ทันที</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="metric-card-fancy">
-                                <div class="metric-icon-wrap bg-info-soft text-info">
-                                    <i class="bi bi-person-check fs-3"></i>
-                                </div>
-                                <h5 class="text-muted small fw-bold mb-1">ผู้มีสิทธิลงคะแนน</h5>
-                                <h2 id="totalVoters" class="fw-bold display-5 mb-0">0</h2>
-                                <div class="mt-3 small text-muted">ครอบคลุมทุกภูมิภาค</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="metric-card-fancy">
-                                <div class="metric-icon-wrap bg-warning-soft text-warning">
-                                    <i class="bi bi-lightning-charge fs-3"></i>
-                                </div>
-                                <h5 class="text-muted small fw-bold mb-1">สัดส่วนการมาใช้สิทธิ</h5>
-                                <h2 id="voteRate" class="fw-bold display-5 mb-0">0%</h2>
-                                <div class="progress mt-3 rounded-pill" style="height: 6px;">
-                                    <div class="progress-bar bg-warning" id="rateProgress" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row g-4">
-                        <div class="col-lg-8">
-                            <!-- 🏆 Primary Results Table -->
-                            <div class="step-card p-4 h-100 overflow-auto border-0 shadow-sm">
-                                <div class="d-flex justify-content-between align-items-center mb-4">
-                                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-list-ol me-2 text-primary"></i> สรุปผลการเลือกตั้งพรรคการเมือง (Real-time)</h6>
-                                    <span class="badge bg-primary-soft text-primary rounded-pill">ส.ส. บัญชีรายชื่อ</span>
-                                </div>
-                                <table class="table table-premium align-middle mb-0">
-                                    <thead>
-                                        <tr class="text-muted small fw-bold">
-                                            <th>พรรค</th>
-                                            <th class="text-center">คะแนนโหวต</th>
-                                            <th class="text-center">ส.ส. เขต</th>
-                                            <th class="text-center">บัญชีรายชื่อ</th>
-                                            <th class="text-center text-primary" style="background: rgba(16, 185, 129, 0.05);">รวมที่นั่ง</th>
-                                        </tr>
-
-                                    </thead>
-                                    <tbody id="overviewPartyBody">
-                                        <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="col-lg-4">
-                            <!-- 📊 Visualization Column -->
-                            <div class="step-card p-4 mb-4 border-0 shadow-sm h-50">
-                                <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-pie-chart-fill me-2 text-primary"></i> สัดส่วนคะแนนพรรค</h6>
-                                <div style="height: 180px;"><canvas id="partyChart"></canvas></div>
-                            </div>
-                            
-                            <div class="metric-card h-50 p-4" style="background: linear-gradient(135deg, #4f46e5, #4338ca); border:none; color: white; min-height: 240px;">
-                                <div class="d-flex justify-content-center flex-column h-100">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h6 class="fw-bold mb-0">สูตรคำนวณเก้าอี้</h6>
-                                        <i class="bi bi-info-circle opacity-75" title="party = คะแนนพรรค, divisor = ตัวหาร, total = ทั้งหมด, validTotal = คะแนนเฉพาะพรรค"></i>
-                                    </div>
-                                    <div class="mb-2 text-white-75 small">สูตรปัจจุบัน:</div>
-                                    <div class="font-monospace fw-bold mb-3" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.15); padding: 12px; border-radius: 12px; font-size: 0.9rem; overflow-x: auto; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                        (party * <span id="displayDivisor">11</span>) / total
-                                    </div>
-                                    <div class="input-group input-group-sm mb-3" style="border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2);">
-                                        <span class="input-group-text border-0 text-white fw-bold" style="background: rgba(255,255,255,0.15); min-width: 70px; justify-content: center;">ตัวหาร</span>
-                                        <input type="number" id="seatDivisor" class="form-control border-0 text-white shadow-none ps-3" style="background: rgba(255,255,255,0.05);" value="11" min="1" step="0.1" oninput="updateUI()">
-                                        <button class="btn" style="background-color: #ffd166; color: #1e1e1e; font-weight: 800; border: none; padding-left: 18px; padding-right: 18px;" onclick="saveFormula()" id="btnSaveFormula">บันทึก</button>
-                                    </div>
-
-                                    <div class="small text-white mb-2" style="font-size: 0.75rem; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 10px;">
-                                        <i class="bi bi-lightbulb-fill text-warning me-1"></i> <span class="opacity-75">เคล็ดลับ: ใช้</span> <b>validTotal</b> <span class="opacity-75">แทน total เพื่อกระจายเก้าอี้เฉพาะพรรคที่ลงแข่ง</span>
-                                    </div>
-                                    <input type="hidden" id="seatFormula" value="(party * divisor) / validTotal">
-                                    <div id="calcStatus" class="small fw-bold text-info-soft mt-1" style="color: #a5f3fc !important;">
-                                        <i class="bi bi-check-circle-fill me-1"></i> ระบบคำนวณอัตโนมัติ
-                                    </div>
-                                </div>
-                            </div>
+                // ถ้้าผู้ใช้ไม่ได้แก้สูตรเอง ให้ใช้ validTotal แทน total อัตโนมัติเพื่อให้ปัดเศษแล้วลงล็อค 11
+                let effectiveFormula = formulaStr;
+                if (effectiveFormula === "(party * divisor) / total") {
+                    effectiveFormula = "(party * divisor) / validTotal";
+                }
+                
+                const finalCalc = new Function('party', 'total', 'validTotal', 'divisor', `return ${effectiveFormula}`);
+                const rawSeats = finalCalc(party, total, validTotal, divisor);
+                
+                // ปัดเศษตามคำขอ (Round to nearest integer)
+                seats = Math.round(rawSeats);
+            } catch (e) {
+                seats = "Err!";
+            }
+        }
 
 
-                        </div>
+        const regSeats = regionWinnerSeats[p.name] || 0;
+        const totalSeats = parseInt(regSeats) + parseInt(seats);
 
-                        <div class="col-lg-4">
-                            <div class="step-card p-4 h-100 border-0 shadow-sm">
-                                <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-bar-chart-fill me-2 text-primary"></i> คะแนนแยกตามเขต (Region)</h6>
-                                <div style="height: 220px;"><canvas id="regionChart"></canvas></div>
-                            </div>
-                        </div>
+        sumPartyVotes += party;
+        sumRegSeats += regSeats;
+        sumListSeats += (parseInt(seats) || 0);
+        sumTotalSeats += totalSeats;
 
-                        <div class="col-lg-8">
-                            <div class="step-card p-4 h-100 overflow-auto border-0 shadow-sm">
-                                <div class="d-flex justify-content-between align-items-center mb-4">
-                                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-person-lines-fill me-2 text-primary"></i> สรุปแคนดิเดตผู้ชนะรายเขต (Top Candidates)</h6>
-                                    <button class="btn btn-sm btn-light rounded-pill px-3" onclick="reloadData()">อัปเดต</button>
-                                </div>
-                                <table class="table table-premium align-middle mb-0">
-                                    <thead>
-                                        <tr class="text-muted small fw-bold">
-                                            <th>ชื่อผู้สมัคร</th>
-                                            <th>สังกัดภาค</th>
-                                            <th class="text-center">คะแนนที่ได้รับ</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="overviewCandidateBody">
-                                        <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- 👥 Voters Management -->
-                <div class="tab-pane fade" id="voters">
-                    <div class="d-flex justify-content-between align-items-center mb-5">
-                        <h2 class="fw-bold">จัดการผู้มีสิทธิ</h2>
-                        <button class="btn btn-primary-custom" onclick="openAddVoterModal()">
-                            <i class="bi bi-plus-lg me-2"></i> เพิ่มรายชื่อ
-                        </button>
-                    </div>
-                    <div class="step-card p-4 overflow-hidden">
-                        <table class="table table-premium align-middle mb-0">
-                            <thead><tr class="text-muted small fw-bold"><th></th><th>ชื่อ-นามสกุล</th><th>ภูมิภาค</th><th>สถานะ</th><th class="text-end">ACTIONS</th></tr></thead>
-                            <tbody id="voterTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
+        // 1. Render in Parties Tab
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="ps-4 fw-bold text-primary">เบอร์ ${p.number || '-'}</td>
+            <td class="fw-bold text-bold">${p.name}</td>
+            <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
+            <td class="text-center"><span class="fw-bold">${regSeats}</span></td>
+            <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
+            <td class="text-center"><span class="fw-bold text-primary" style="font-size: 1.1rem;">${totalSeats}</span></td>
+            <td class="text-end pe-4">
+                <button class="btn btn-sm btn-outline-primary border-0 rounded-3 p-2 me-1" onclick="editEntry('PARTY', '${p.id}')"><i class="bi bi-pencil-square"></i></button>
+                <button class="btn btn-sm btn-outline-danger border-0 rounded-3 p-2" onclick="deleteEntry('PARTY', '${p.id}')"><i class="bi bi-trash3-fill"></i></button>
+            </td>
+        `;
+        body.appendChild(row);
 
-                <!-- 🎖 Candidates Management -->
-                <div class="tab-pane fade" id="candidates">
-                    <div class="d-flex justify-content-between align-items-center mb-5">
-                        <h2 class="fw-bold">จัดการผู้สมัคร ส.ส.</h2>
-                        <button class="btn btn-primary-custom" onclick="openAddCandidateModal()">
-                            <i class="bi bi-person-plus me-2"></i> เพิ่มผู้สมัคร
-                        </button>
-                    </div>
-                    <div class="step-card p-4 overflow-hidden">
-                        <table class="table table-premium align-middle mb-0">
-                            <thead><tr class="text-muted small fw-bold"><th>เบอร์</th><th>ชื่อผู้สมัคร</th><th>สังกัดพรรค</th><th>ภูมิภาคเขตเลือกตั้ง</th><th class="text-end">ACTIONS</th></tr></thead>
-                            <tbody id="candidateTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
+        // 2. Render in Overview Tab (If exists)
+        if (overviewBody) {
+            const overviewRow = document.createElement('tr');
+            overviewRow.innerHTML = `
+                <td class="fw-bold"><span class="text-primary me-2">เบอร์ ${p.number || '-'}</span> ${p.name}</td>
+                <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
+                <td class="text-center"><span class="fw-bold text-muted">${regSeats}</span></td>
+                <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
+                <td class="text-center"><span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill fs-6">${totalSeats}</span></td>
+            `;
+            overviewBody.appendChild(overviewRow);
+        }
 
-                <!-- 🚩 Parties Management -->
-                <div class="tab-pane fade" id="parties">
-                    <div class="d-flex justify-content-between align-items-center mb-5">
-                        <h2 class="fw-bold">จัดการพรรคการเมือง</h2>
-                        <button class="btn btn-primary-custom" onclick="openAddPartyModal()">
-                            <i class="bi bi-flag-fill me-2"></i> เพิ่มพรรค
-                        </button>
-                    </div>
-                    <div class="step-card p-4 overflow-hidden">
-                        <table class="table table-premium align-middle mb-0">
-                            <thead><tr class="text-muted small fw-bold"><th>เบอร์</th><th>ชื่อพรรค</th><th class="text-center">คะแนนโหวต</th><th class="text-center">ส.ส. เขต</th><th class="text-center">บัญชีรายชื่อ</th><th class="text-center text-primary">รวมเก้าอี้</th><th class="text-end pe-4">ACTIONS</th></tr></thead>
+    });
 
-                            <tbody id="partyTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
+    // Add "No Vote / No Selected" row if there are such votes
+    const noVotesCount = total - validTotal;
+    if (noVotesCount > 0) {
+        const percent = total > 0 ? ((noVotesCount / total) * 100).toFixed(1) : "0.0";
+        let noVoteSeats = "-"; // ไม่ต้องมีเก้าอี้ตามคำสั่ง
 
-                <!-- 📜 Vote Log Management -->
-                <div class="tab-pane fade" id="votes-log">
-                    <div class="d-flex justify-content-between align-items-center mb-5">
-                        <div>
-                            <h2 class="fw-bold">ประวัติการลงคะแนน</h2>
-                            <p class="text-muted small mb-0">รายการตรวจสอบรายบุคคล (ยึดตาม Google Sheet)</p>
-                        </div>
-                        <button class="btn btn-outline-custom" onclick="exportToCSV()">
-                            <i class="bi bi-download me-2"></i> ส่งออกข้อมูล (CSV)
-                        </button>
-                    </div>
-                    <div class="step-card p-4 overflow-hidden">
-                        <table class="table table-premium align-middle mb-0">
-                            <thead>
-                                <tr class="text-muted small fw-bold">
-                                    <th>เวลา</th>
-                                    <th>ชื่อผู้ใช้สิทธิ</th>
-                                    <th>ภาค</th>
-                                    <th>ลงคะแนนให้ ส.ส.</th>
-                                    <th>เลือกพรรค</th>
-                                    <th>IP Address</th>
-                                </tr>
-                            </thead>
-                            <tbody id="votesLogTableBody">
-                                <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        const noVoteRow = document.createElement('tr');
+        noVoteRow.className = "table-light opacity-75";
+        noVoteRow.innerHTML = `
+            <td class="ps-4 italic text-muted" colspan="2"><i class="bi bi-slash-circle me-2"></i> ไม่ประสงค์ลงคะแนน / บัตรเสีย</td>
+            <td class="text-center"><span class="badge bg-light text-muted border px-3">${noVotesCount.toLocaleString()}</span></td>
+            <td class="text-center">-</td>
+            <td class="text-center">-</td>
+            <td class="text-center"><span class="fw-bold text-muted">${noVoteSeats}</span></td>
+            <td class="text-end pe-4"></td>
+        `;
 
-                <!-- 📄 Full Report Section (Printable) -->
-                <div class="tab-pane fade" id="full-report">
-                    <div class="d-flex justify-content-between align-items-center mb-5 no-print">
-                        <h2 class="fw-bold">รายงานสรุปผลทั้้งหมด</h2>
-                        <button class="btn btn-primary-custom" onclick="window.print()">
-                            <i class="bi bi-printer me-2"></i> พิมพ์รายงาน (Print)
-                        </button>
-                    </div>
-                    
-                    <div class="report-container bg-white p-5 rounded-5 shadow-sm border">
-                        <div class="text-center mb-5 pb-4 border-bottom">
-                            <h2 class="fw-bold text-primary mb-2">สรุปผลการเลือกตั้ง (Smart Election V3)</h2>
-                            <p class="text-muted">ข้อมูล ณ วันที่ <span id="reportDate"></span> | รายงานแบบ Real-time</p>
-                        </div>
-                        
-                        <div class="row g-4 mb-5 pb-5 border-bottom">
-                            <div class="col-md-3 text-center border-end">
-                                <h5 class="text-muted small fw-bold">ผู้มาใช้สิทธิรวม</h5>
-                                <h1 id="reportTotalVotes" class="fw-bold">0</h1>
-                            </div>
-                            <div class="col-md-3 text-center border-end">
-                                <h5 class="text-muted small fw-bold">จากผู้มีสิทธิทั้งหมด</h5>
-                                <h1 id="reportTotalVoters" class="fw-bold">0</h1>
-                            </div>
-                            <div class="col-md-3 text-center border-end">
-                                <h5 class="text-muted small fw-bold">เปอร์เซ็นต์การมาใช้สิทธิ</h5>
-                                <h1 id="reportVoteRate" class="fw-bold">0%</h1>
-                            </div>
-                            <div class="col-md-3 text-center">
-                                <h5 class="text-muted small fw-bold">ไม่ประสงค์ลงคะแนน</h5>
-                                <h1 id="reportNoVote" class="fw-bold">0</h1>
-                            </div>
-                        </div>
+        const noVoteOverviewRow = document.createElement('tr');
+        noVoteOverviewRow.className = "table-light opacity-75";
+        noVoteOverviewRow.innerHTML = `
+            <td class="italic text-muted"><i class="bi bi-slash-circle me-2"></i> ไม่ประสงค์ลงคะแนน / อื่นๆ</td>
+            <td class="text-center"><span class="badge bg-light text-muted border px-3">${noVotesCount.toLocaleString()}</span></td>
+            <td class="text-center">-</td>
+            <td class="text-center">-</td>
+            <td class="text-center"><span class="badge bg-light text-muted px-3 py-2 rounded-pill fs-6">${noVoteSeats}</span></td>
+        `;
 
-                        <div class="row mb-5">
-                            <div class="col-12">
-                                <h5 class="fw-bold mb-4"><i class="bi bi-flag-fill me-2 text-primary"></i> คะแนนเสียงรายพรรคการเมือง</h5>
-                                <div id="reportPartyList" class="row row-cols-1 row-cols-md-2 g-3">
-                                    <!-- JS Render -->
-                                </div>
-                            </div>
-                        </div>
+        body.appendChild(noVoteRow);
+        if (overviewBody) overviewBody.appendChild(noVoteOverviewRow);
+        
+        // Include in total votes
+        sumPartyVotes += noVotesCount;
+    }
 
-                        <div class="row">
-                            <div class="col-12">
-                                <h5 class="fw-bold mb-4"><i class="bi bi-person-badge-fill me-2 text-primary"></i> สรุปผู้ชนะคะแนนสูงสุดรายเขต (Top Candidates)</h5>
-                                <div class="table-responsive">
-                                    <table class="table table-bordered align-middle">
-                                        <thead class="bg-light">
-                                            <tr>
-                                                <th>ภูมิภาค</th>
-                                                <th>ผู้สมัครที่ได้รับคะแนนสูงสุด</th>
-                                                <th class="text-center">พรรค</th>
-                                                <th class="text-center">คะแนนโหวต</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="reportRegionalWinners">
-                                            <!-- JS Render -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
+    // Add Grand Total Row (Everything)
+    const totalRow = document.createElement('tr');
+    totalRow.className = "table-secondary fw-bold border-top border-2";
+    totalRow.innerHTML = `
+        <td class="ps-4" colspan="2"><i class="bi bi-calculator me-2"></i> รวมทั้งหมด (พรรค + ไม่ประสงค์)</td>
+        <td class="text-center"><span class="badge bg-white text-dark border px-3">${sumPartyVotes.toLocaleString()}</span></td>
+        <td class="text-center">${sumRegSeats}</td>
+        <td class="text-center">${sumListSeats}</td>
+        <td class="text-center"><span class="text-primary" style="font-size: 1.1rem;">${sumTotalSeats}</span></td>
+        <td></td>
+    `;
+    body.appendChild(totalRow);
 
-                        <div class="mt-5 pt-5 text-center text-muted small border-top no-print">
-                            *** รายงานนี้คำนวณจากข้อมูลใน Google Sheets แบบวินาทีต่อวินาที ***
-                        </div>
-                    </div>
-                </div>
+    if (overviewBody) {
+        const overviewTotalRow = document.createElement('tr');
+        overviewTotalRow.className = "table-secondary fw-bold border-top border-2";
+        overviewTotalRow.innerHTML = `
+            <td><i class="bi bi-calculator me-2"></i> รวมทั้งหมด</td>
+            <td class="text-center"><span class="badge bg-white text-dark border px-3">${sumPartyVotes.toLocaleString()}</span></td>
+            <td class="text-center">${sumRegSeats}</td>
+            <td class="text-center">${sumListSeats}</td>
+            <td class="text-center"><span class="badge bg-primary px-3 py-2 rounded-pill fs-6">${sumTotalSeats}</span></td>
+        `;
+        overviewBody.appendChild(overviewTotalRow);
+    }
 
-                <!-- ⚙ Settings Section -->
-                <div class="tab-pane fade" id="settings">
-                    <div class="row g-4">
-                        <div class="col-lg-7">
-                            <div class="step-card p-5 h-100 border-0 shadow-sm" style="background: linear-gradient(145deg, #ffffff, #f8fafc);">
-                                <div class="d-flex align-items-center mb-4">
-                                    <div class="bg-primary-soft p-3 rounded-4 me-3">
-                                        <i class="bi bi-clock-history fs-3 text-primary"></i>
-                                    </div>
-                                    <div>
-                                        <h3 class="fw-bold mb-0">ช่วงเวลาเปิดลงคะแนน</h3>
-                                        <p class="text-muted small mb-0">กำหนดเวลาที่ประชาชนสามารถเข้าถึงหีบเลือกตั้งดิจิทัล</p>
-                                    </div>
-                                </div>
-                                
-                                <div class="row g-4 pt-2">
-                                    <div class="col-md-6 mb-3 mb-md-0">
-                                        <div class="p-3 border-2 rounded-4 bg-white border" style="min-height: 90px; border-style: solid; border-color: #e2e8f0;">
-                                            <label class="form-label small fw-bold text-muted mb-1 d-block" style="font-size: 0.75rem;">วัน-เวลาเปิดหีบ</label>
-                                            <input type="datetime-local" id="startTime" class="form-control border-0 p-0 shadow-none bg-transparent fs-5 fw-bold text-dark w-100" style="outline: none;">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="p-3 border-2 rounded-4 bg-white border" style="min-height: 90px; border-style: solid; border-color: #e2e8f0;">
-                                            <label class="form-label small fw-bold text-muted mb-1 d-block" style="font-size: 0.75rem;">วัน-เวลาปิดหีบ</label>
-                                            <input type="datetime-local" id="endTime" class="form-control border-0 p-0 shadow-none bg-transparent fs-5 fw-bold text-dark w-100" style="outline: none;">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="mt-5">
-                                    <button class="btn btn-primary-custom w-100 py-3 rounded-4 shadow-sm" onclick="saveSettings()">
-                                        <i class="bi bi-cloud-check-fill me-2"></i> บันทึกการตั้งค่าระบบ
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-lg-5">
-                            <div class="step-card p-5 h-100 border-danger border-opacity-10 shadow-sm" style="background: linear-gradient(145deg, #ffffff, #fff5f5);">
-                                <div class="d-flex align-items-center mb-4">
-                                    <div class="bg-danger-soft p-3 rounded-4 me-3">
-                                        <i class="bi bi-shield-lock-fill fs-3 text-danger"></i>
-                                    </div>
-                                    <div>
-                                        <h3 class="fw-bold text-danger mb-0">จัดการข้อมูลอันตราย</h3>
-                                        <p class="text-muted small mb-0">เข้าถึงการกระทำที่ไม่สามารถย้อนคืนได้</p>
-                                    </div>
-                                </div>
 
-                                <div class="bg-white p-4 rounded-4 mb-4 border border-danger border-opacity-10 shadow-sm">
-                                    <div class="d-flex gap-3 align-items-center mb-2">
-                                        <i class="bi bi-exclamation-triangle-fill text-danger fs-4"></i>
-                                        <h6 class="fw-bold mb-0 text-danger">คำเตือนระบบ</h6>
-                                    </div>
-                                    <p class="mb-0 text-muted small lh-base">การ "ล้างข้อมูลคะแนน" จะทำการลบข้อมูลในชีตโหวตทั้งหมดถาวร ไม่สามารถกู้คืนได้ และผลรวมจะกลับเป็นศูนย์ทันที</p>
-                                </div>
 
-                                <button class="btn btn-outline-danger w-100 py-3 rounded-4 fw-bold border-2 hover-bg-danger" onclick="confirmResetVotes()">
-                                    <i class="bi bi-trash3-fill me-2"></i> ล้างข้อมูลคะแนนเลือกตั้งทั้งหมด
-                                </button>
-                                
-                                <p class="text-center mt-4 small text-muted">
-                                    Admin: <span class="badge bg-light text-dark border">Root Access</span>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
+
+    const displayDivisor = document.getElementById('displayDivisor');
+    if (displayDivisor) displayDivisor.textContent = divisor;
+    
+    // Suggest formula fix if it doesn't total to divisor
+    const status = document.getElementById('calcStatus');
+    if (status) {
+        status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> คำนวณจากยอดรวม ${total} คะแนน`;
+        if (noVotesCount > 0) {
+            status.innerHTML += ` <span class="text-warning small ms-2">(มีไม่ประสงค์ลงคะแนน ${noVotesCount})</span>`;
+        }
+        status.classList.add('animate__animated', 'animate__fadeIn');
+        setTimeout(() => status.classList.remove('animate__animated', 'animate__fadeIn'), 1000);
+    }
+}
+
+
+
+function renderVotesLogTable() {
+    const body = document.getElementById('votesLogTableBody');
+    if (!body) return;
+
+    body.innerHTML = '';
+    const votes = (globalData.votes || []).slice().reverse(); // ล่าสุดอยู่บน
+
+    if (votes.length === 0) {
+        body.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">ยังไม่มีข้อมูลการลงคะแนน</td></tr>';
+        return;
+    }
+
+    votes.forEach(v => {
+        const row = document.createElement('tr');
+        const date = v.timestamp ? new Date(v.timestamp).toLocaleString('th-TH') : '-';
+        row.innerHTML = `
+            <td class="small text-muted">${date}</td>
+            <td class="fw-bold">${v.voter || '-'}</td>
+            <td><span class="badge bg-light text-dark border">${formatRegionName(v.region)}</span></td>
+            <td><span class="text-primary fw-medium">${v.candidate || '-'}</span></td>
+            <td><span class="text-success fw-medium">${v.party || '-'}</span></td>
+            <td class="small text-muted font-monospace">${v.ip || '-'}</td>
+        `;
+        body.appendChild(row);
+    });
+}
+
+function exportToCSV() {
+    const votes = globalData.votes || [];
+    if (votes.length === 0) {
+        alert("ไม่มีข้อมูลให้ส่งออก");
+        return;
+    }
+
+    const headers = ["Timestamp", "Voter", "Region", "Candidate", "Party", "IP Address"];
+    const rows = votes.map(v => [
+        v.timestamp,
+        v.voter,
+        formatRegionName(v.region),
+        v.candidate,
+        v.party,
+        v.ip
+    ]);
+
+    let csvContent = "\uFEFF"; // Add BOM for Excel Thai support
+    csvContent += headers.join(",") + "\n";
+    rows.forEach(row => {
+        csvContent += row.map(field => `"${field}"`).join(",") + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `election_report_${new Date().getTime()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function renderCandidateSummary() {
+    const body = document.getElementById('overviewCandidateBody');
+    if (!body) return;
+
+    const candVotes = {};
+    const candRegion = {};
+    globalData.votes.forEach(v => {
+        if (v.candidate && v.candidate !== 'ไม่ได้เลือก' && v.candidate !== 'ไม่ประสงค์ลงคะแนน') {
+            candVotes[v.candidate] = (candVotes[v.candidate] || 0) + 1;
+            candRegion[v.candidate] = v.region;
+        }
+    });
+
+    const sortedCands = Object.keys(candVotes).sort((a, b) => candVotes[b] - candVotes[a]);
+
+    body.innerHTML = '';
+    if (sortedCands.length === 0) {
+        body.innerHTML = '<tr><td colspan="3" class="text-center py-3 text-muted small">ยังไม่มีข้อมูล</td></tr>';
+        return;
+    }
+
+    sortedCands.forEach(name => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="fw-bold">${name}</td>
+            <td><span class="badge bg-light text-dark border">${formatRegionName(candRegion[name]) || '-'}</span></td>
+            <td class="text-center"><span class="badge bg-primary px-3 fw-bold">${candVotes[name].toLocaleString()}</span></td>
+        `;
+        body.appendChild(row);
+    });
+}
+
+function renderFullReport() {
+    const reportDate = document.getElementById('reportDate');
+    if (!reportDate) return;
+
+    reportDate.innerText = new Date().toLocaleString('th-TH');
+
+    // Metrics
+    const votes = globalData.votes || [];
+    const voters = globalData.voters || [];
+    const noVotes = votes.filter(v => v.candidate === 'ไม่ประสงค์ลงคะแนน' || v.candidate === 'ไม่ได้เลือก').length;
+
+    document.getElementById('reportTotalVotes').innerText = votes.length.toLocaleString();
+    document.getElementById('reportTotalVoters').innerText = voters.length.toLocaleString();
+    document.getElementById('reportVoteRate').innerText = (voters.length > 0 ? Math.round((votes.length / voters.length) * 100) : 0) + "%";
+    document.getElementById('reportNoVote').innerText = noVotes.toLocaleString();
+
+    // Party List
+    const partyStats = {};
+    votes.forEach(v => { if (v.party && v.party !== 'ไม่ประสงค์ลงคะแนน') partyStats[v.party] = (partyStats[v.party] || 0) + 1; });
+
+    const partyContainer = document.getElementById('reportPartyList');
+    partyContainer.innerHTML = '';
+    (globalData.parties || []).forEach(p => {
+        const count = partyStats[p.name] || 0;
+        const col = document.createElement('div');
+        col.className = 'col';
+        col.innerHTML = `
+            <div class="d-flex justify-content-between p-3 border rounded-4 bg-light bg-opacity-50">
+                <span class="fw-bold"><span class="text-primary me-2">เบอร์ ${p.number}</span> ${p.name}</span>
+                <span class="fw-bold">${count.toLocaleString()} คะแนน</span>
             </div>
+        `;
+        partyContainer.appendChild(col);
+    });
 
-            <!-- 🏢 Enhanced Admin Modern Footer -->
-            <footer class="footer-glass mt-5 pt-5 pb-4 no-print" style="margin-left: -2rem; margin-right: -2rem; padding-left: 2rem; padding-right: 2rem;">
-                <div class="row align-items-center g-4">
-                    <div class="col-md-4 text-center text-md-start">
-                        <div class="d-flex align-items-center justify-content-center justify-content-md-start mb-2">
-                            <i class="bi bi-shield-check text-primary me-2 fs-5"></i>
-                            <h6 class="fw-bold mb-0 text-dark">Management Console <span class="text-primary small">v3.0.4</span></h6>
-                        </div>
-                        <p class="text-muted small mb-0">ระบบจัดการการเลือกตั้งอัจฉริยะ (Smart Election) - Admin Mode</p>
-                    </div>
-                    <div class="col-md-4 text-center">
-                         <div class="d-inline-flex align-items-center bg-white bg-opacity-50 px-3 py-1 rounded-pill border small text-muted">
-                            <div class="pulse-dot me-2 bg-success"></div> เครือข่ายออนไลน์: <span class="ms-2 fw-bold text-success">Google Apps Script API</span>
-                        </div>
-                    </div>
-                    <div class="col-md-4 text-center text-md-end">
-                        <div class="small text-muted opacity-75">
-                            พัฒนาขึ้นเพื่อการเลือกตั้งดิจิทัลโดยเฉพาะ <br>
-                            © 2026 Secured Infrastructure. All Rights Reserved.
-                        </div>
-                    </div>
-                </div>
-            </footer>
-        </div>
-    </div>
+    // Regional Winners
+    const regionWinners = {};
+    votes.forEach(v => {
+        if (v.candidate && v.candidate !== 'ไม่ประสงค์ลงคะแนน' && v.candidate !== 'ไม่ได้เลือก') {
+            if (!regionWinners[v.region]) regionWinners[v.region] = {};
+            regionWinners[v.region][v.candidate] = (regionWinners[v.region][v.candidate] || 0) + 1;
+        }
+    });
 
-    <!-- MODALS (All Modals V3 UI) -->
-    <div class="modal fade" id="addVoterModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 rounded-5 overflow-hidden">
-                <div class="modal-header bg-main border-0 p-4 px-5"><h4 class="fw-bold mb-0">ลงทะเบียนผู้มีสิทธิ</h4><button class="btn-close" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body px-5 pb-5">
-                    <ul class="nav nav-pills mb-4 bg-light p-1 rounded-4" id="voterAddTabs" role="tablist">
-                        <li class="nav-item flex-fill"><button class="nav-link active w-100 rounded-3 py-2 fw-bold" id="single-tab" data-bs-toggle="pill" data-bs-target="#single-voter" type="button">รายบุคคล</button></li>
-                        <li class="nav-item flex-fill"><button class="nav-link w-100 rounded-3 py-2 fw-bold" id="bulk-tab" data-bs-toggle="pill" data-bs-target="#bulk-voters" type="button">แบบเพิ่มเยอะๆ</button></li>
-                    </ul>
-                    <div class="mb-4"><label class="form-label small fw-bold text-muted">ภูมิภาค</label><select id="newVoterRegion" class="form-select form-select-lg border-2 rounded-4 shadow-none"><option value="east">ภาคตะวันออก</option><option value="south">ภาคใต้</option><option value="north">ภาคเหนือ</option><option value="central">ภาคกลาง</option></select></div>
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="single-voter"><div class="mb-3"><label class="form-label small fw-bold text-muted">ชื่อ-นามสกุล</label><input type="text" id="newVoterName" class="form-control form-control-lg border-2 rounded-4" placeholder="เช่น นาย มานะ อุตสาหะ"></div></div>
-                        <div class="tab-pane fade" id="bulk-voters"><div class="mb-3"><label class="form-label small fw-bold text-muted">รายชื่อ (แถวละคน)</label><textarea id="bulkVoterNames" class="form-control border-2 rounded-4" rows="6" placeholder="นาย มานะ อุตสาหะ"></textarea></div></div>
-                    </div>
-                    <button id="btnSaveVoter" class="btn btn-primary-custom w-100 mt-4" onclick="saveVoter()"><i class="bi bi-cloud-upload me-2"></i> บันทึกข้อมูล</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    const winnerTable = document.getElementById('reportRegionalWinners');
+    winnerTable.innerHTML = '';
+    ['central', 'north', 'south', 'east'].forEach(r => {
+        const cands = regionWinners[r] || {};
+        const topCand = Object.keys(cands).reduce((a, b) => cands[a] > cands[b] ? a : b, null);
+        const winCount = topCand ? cands[topCand] : 0;
 
-    <!-- Add Candidate Modal (Standardized with Bulk) -->
-    <div class="modal fade" id="addCandidateModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 rounded-5 overflow-hidden">
-                <div class="modal-header bg-main border-0 p-4 px-5"><h4 class="fw-bold mb-0">จัดการผู้สมัคร ส.ส.</h4><button class="btn-close" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body px-5 pb-5">
-                    <ul class="nav nav-pills mb-4 bg-light p-1 rounded-4" id="candidateAddTabs" role="tablist">
-                        <li class="nav-item flex-fill"><button class="nav-link active w-100 rounded-3 py-2 fw-bold" id="single-cand-tab" data-bs-toggle="pill" data-bs-target="#single-candidate" type="button">รายบุคคล</button></li>
-                        <li class="nav-item flex-fill"><button class="nav-link w-100 rounded-3 py-2 fw-bold" id="bulk-cand-tab" data-bs-toggle="pill" data-bs-target="#bulk-candidates" type="button">แบบเพิ่มเยอะๆ</button></li>
-                    </ul>
-                    
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-muted">ภูมิภาคเขตเลือกตั้ง</label>
-                            <select id="newCandidateRegion" class="form-select border-2 rounded-4 shadow-none">
-                                <option value="east">ภาคตะวันออก</option>
-                                <option value="south">ภาคใต้</option>
-                                <option value="north">ภาคเหนือ</option>
-                                <option value="central">ภาคกลาง</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-muted">สังกัดพรรค</label>
-                            <select id="newCandidateParty" class="form-select border-2 rounded-4 shadow-none">
-                                <option value="">-- เลือกพรรค --</option>
-                            </select>
-                        </div>
-                    </div>
+        // Find candidate party
+        const candData = globalData.candidates.find(c => c.name === topCand);
 
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="single-candidate">
-                            <div class="row g-3">
-                                <div class="col-3">
-                                    <label class="form-label small fw-bold text-muted">เบอร์</label>
-                                    <input type="number" id="newCandidateNumber" class="form-control border-2 rounded-4" placeholder="0">
-                                </div>
-                                <div class="col-9">
-                                    <label class="form-label small fw-bold text-muted">ชื่อ-นามสกุล</label>
-                                    <input type="text" id="newCandidateName" class="form-control border-2 rounded-4" placeholder="ระบุชื่อผู้สมัคร">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="bulk-candidates">
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold text-muted">รายชื่อผู้สมัคร (แถวละคน)</label>
-                                <textarea id="bulkCandidateNames" class="form-control border-2 rounded-4" rows="6" placeholder="นาย มานะ อุตสาหะ"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <button id="btnSaveCandidate" class="btn btn-primary-custom w-100 mt-4" onclick="saveCandidate()"><i class="bi bi-person-check me-2"></i> บันทึกรายชื่อ</button>
-                </div>
-            </div>
-        </div>
-    </div>
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="fw-bold">${formatRegionName(r)}</td>
+            <td>${topCand || '<span class="text-muted">ยังไม่มีข้อมูล</span>'}</td>
+            <td class="text-center">${candData ? candData.party : '-'}</td>
+            <td class="text-center fw-bold">${winCount.toLocaleString()}</td>
+        `;
+        winnerTable.appendChild(row);
+    });
+}
 
-    <div class="modal fade" id="addPartyModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 rounded-5 overflow-hidden shadow-lg">
-                <div class="modal-header bg-main border-0 p-4 px-5">
-                    <h4 class="fw-bold mb-0">จัดการพรรคการเมือง</h4>
-                    <button class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body px-5 pb-5">
-                    <ul class="nav nav-pills mb-4 bg-light p-1 rounded-4" id="partyAddTabs" role="tablist">
-                        <li class="nav-item flex-fill"><button class="nav-link active w-100 rounded-3 py-2 fw-bold" id="single-party-tab" data-bs-toggle="pill" data-bs-target="#single-party" type="button">รายพรรค</button></li>
-                        <li class="nav-item flex-fill"><button class="nav-link w-100 rounded-3 py-2 fw-bold" id="bulk-party-tab" data-bs-toggle="pill" data-bs-target="#bulk-parties" type="button">เพิ่มเยอะๆ</button></li>
-                    </ul>
+async function saveSettings() {
+    const startTime = document.getElementById('startTime').value;
+    const endTime = document.getElementById('endTime').value;
 
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="single-party">
-                            <div class="row g-3">
-                                <div class="col-3">
-                                    <label class="form-label small fw-bold text-muted">เบอร์</label>
-                                    <input type="number" id="newPartyNumber" class="form-control border-2 rounded-4" placeholder="0">
-                                </div>
-                                <div class="col-9">
-                                    <label class="form-label small fw-bold text-muted">ชื่อพรรคการเมือง</label>
-                                    <input type="text" id="newPartyName" class="form-control border-2 rounded-4" placeholder="ระบุชื่อพรรค">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="bulk-parties">
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold text-muted">รายชื่อพรรค (แถวละชื่อ)</label>
-                                <textarea id="bulkPartyNames" class="form-control border-2 rounded-4" rows="6" placeholder="พรรคประชารัฐ"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <button id="btnSaveParty" class="btn btn-primary-custom w-100 mt-4" onclick="saveParty()">
-                        <i class="bi bi-check-lg me-2"></i> บันทึกข้อมูลพรรค
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+    const btn = document.querySelector('button[onclick="saveSettings()"]');
+    const originalText = btn.innerHTML;
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="admin-script.js"></script>
-</body>
-</html>
+    try {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...`;
+
+        await callAPI('UPDATE_SETTINGS', { startTime, endTime });
+        await reloadData(); // Sync with server for certainty
+        alert("บันทึกการตั้งค่าเวลาเรียบร้อยแล้ว");
+    } catch (error) {
+        alert("เกิดข้อผิดพลาด: " + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+async function saveFormula() {
+    const seatDivisor = document.getElementById('seatDivisor').value;
+    const seatFormulaEl = document.getElementById('seatFormula');
+    const seatFormula = seatFormulaEl ? seatFormulaEl.value : "(party * divisor) / total";
+
+    const btn = document.getElementById('btnSaveFormula');
+    if (!btn) return;
+
+    const originalText = btn.innerHTML;
+    try {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
+
+        // We fetch current settings from API response and map it to save all settings fields together to avoid overriding missing fields
+        const currentData = globalData.settings || {};
+        const updateData = {
+            ...currentData,
+            seatDivisor: seatDivisor,
+            seatFormula: seatFormula
+        };
+
+        await callAPI('UPDATE_SETTINGS', updateData);
+        alert("บันทึกสูตรคำนวณเรียบร้อยแล้ว");
+    } catch (error) {
+        alert("เกิดข้อผิดพลาด: " + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+// 4. API Core Actions (Optimized for Speed)
+async function callAPI(action, data = {}, id = null) {
+    try {
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'cors',
+            redirect: 'follow',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, data, id })
+        });
+
+        const res = await response.json();
+        if (res.result === "success") {
+            // ไม่ต้อง reloadData() ทั้งหมดทุุกครั้ง ให้แก้ไขที่ตัวแปร globalData โดยตรง
+            handleLocalStateUpdate(action, data, res.id || id);
+            return true;
+        } else {
+            alert("Error: " + res.message);
+            reloadData(); // ถ้าพลาดให้ดึงใหม่ทั้งหมดเพื่อซิงค์
+            return false;
+        }
+    } catch (e) {
+        console.error("API Call Error:", e);
+        alert("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
+        reloadData();
+    }
+    return false;
+}
+
+// ฟังก์ชันช่่วยอัปเดตข้อมูลในเครื่องทันทีเพื่อให้รู้สึกเร็ว (Optimistic UI)
+function handleLocalStateUpdate(action, data, id) {
+    if (action.startsWith('ADD_')) {
+        const type = action.replace('ADD_', '').toLowerCase() + 's';
+        if (globalData[type]) {
+            globalData[type].push({ ...data, id });
+        }
+    } else if (action.startsWith('DELETE_')) {
+        const type = action.replace('DELETE_', '').toLowerCase() + 's';
+        if (globalData[type]) {
+            globalData[type] = globalData[type].filter(item => item.id !== id);
+        }
+    } else if (action === 'BATCH_ADD_VOTERS') {
+        data.names.forEach((name, i) => {
+            globalData.voters.push({ name, region: data.region, id: "TEMP-" + i });
+        });
+        // สำหรับ Batch แนะนำให้ reloadData ทีหลังเพื่อเอา ID จริง
+        setTimeout(reloadData, 1500);
+    } else if (action === 'RESET_VOTES') {
+        globalData.votes = [];
+    } else if (action === 'UPDATE_SETTINGS') {
+        globalData.settings = { ...globalData.settings, ...data };
+    }
+
+    updateUI(); // วาดตารางใหม่ทันทีจากข้อมูลในหน่วยความจำ
+}
+
+// Modals & Management
+function editEntry(type, id) {
+    editingId = id;
+    if (type === 'VOTER') {
+        const v = globalData.voters.find(x => x.id === id);
+        if (v) {
+            document.getElementById('newVoterName').value = v.name || '';
+            document.getElementById('newVoterRegion').value = v.region || 'central';
+            document.getElementById('single-tab').click();
+            new bootstrap.Modal('#addVoterModal').show();
+        }
+    } else if (type === 'CANDIDATE') {
+        const c = globalData.candidates.find(x => x.id === id);
+        if (c) {
+            document.getElementById('newCandidateName').value = c.name || '';
+            document.getElementById('newCandidateNumber').value = c.number || '';
+            document.getElementById('newCandidateRegion').value = c.region || 'central';
+            updatePartyDropdowns();
+            document.getElementById('newCandidateParty').value = c.party || '';
+            document.getElementById('single-cand-tab').click();
+            new bootstrap.Modal('#addCandidateModal').show();
+        }
+    } else if (type === 'PARTY') {
+        const p = globalData.parties.find(x => x.id === id);
+        if (p) {
+            document.getElementById('newPartyNumber').value = p.number || '';
+            document.getElementById('newPartyName').value = p.name || '';
+            document.getElementById('single-party-tab').click();
+            new bootstrap.Modal('#addPartyModal').show();
+        }
+    }
+}
+
+// Modals & Management
+function openAddVoterModal() { editingId = null; document.getElementById('newVoterName').value = ''; new bootstrap.Modal('#addVoterModal').show(); }
+async function saveVoter() {
+    const region = document.getElementById('newVoterRegion').value;
+    const isSingle = document.getElementById('single-tab').classList.contains('active');
+    const btn = document.getElementById('btnSaveVoter');
+
+    btn.disabled = true;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...';
+
+    try {
+        if (isSingle) {
+            const name = document.getElementById('newVoterName').value.trim();
+            if (name) {
+                if (editingId) {
+                    await callAPI('UPDATE_VOTER', { name, region }, editingId);
+                } else {
+                    await callAPI('ADD_VOTER', { name, region });
+                }
+                document.getElementById('newVoterName').value = '';
+            } else {
+                alert("กรุณาระบุชื่อ-นามสกุล");
+                return;
+            }
+        } else {
+            const bulkText = document.getElementById('bulkVoterNames').value;
+            const names = bulkText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+            if (names.length > 0) {
+                await callAPI('BATCH_ADD_VOTERS', { names, region });
+                document.getElementById('bulkVoterNames').value = '';
+            } else {
+                alert("กรุณาป้อนรายชื่ออย่างน้อย 1 รายการ");
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+                return;
+            }
+        }
+        bootstrap.Modal.getInstance(document.getElementById('addVoterModal')).hide();
+    } catch (e) {
+        alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+function updatePartyDropdowns() {
+    const dropdown = document.getElementById('newCandidateParty');
+    if (!dropdown) return;
+
+    const currentVal = dropdown.value;
+    dropdown.innerHTML = '<option value="">-- เลือกพรรค --</option>';
+    (globalData.parties || []).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        opt.textContent = p.name;
+        dropdown.appendChild(opt);
+    });
+    dropdown.value = currentVal;
+}
+
+// Candidates & Parties Management
+function openAddCandidateModal() {
+    editingId = null;
+    document.getElementById('newCandidateName').value = '';
+    document.getElementById('newCandidateNumber').value = '';
+    updatePartyDropdowns();
+    new bootstrap.Modal('#addCandidateModal').show();
+}
+
+async function saveCandidate() {
+    const region = document.getElementById('newCandidateRegion').value;
+    const party = document.getElementById('newCandidateParty').value;
+    const isSingle = document.getElementById('single-cand-tab').classList.contains('active');
+    const btn = document.getElementById('btnSaveCandidate');
+
+    btn.disabled = true;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...';
+
+    try {
+        if (isSingle) {
+            const name = document.getElementById('newCandidateName').value.trim();
+            const number = document.getElementById('newCandidateNumber').value;
+            if (name && number) {
+                if (editingId) {
+                    await callAPI('UPDATE_CANDIDATE', { name, region, number, party }, editingId);
+                } else {
+                    await callAPI('ADD_CANDIDATE', { name, region, number, party });
+                }
+                document.getElementById('newCandidateName').value = '';
+                document.getElementById('newCandidateNumber').value = '';
+                bootstrap.Modal.getInstance(document.getElementById('addCandidateModal')).hide();
+            } else {
+                alert("กรุณาระบุชื่อและเบอร์ผู้สมัคร");
+                return;
+            }
+        } else {
+            const bulkText = document.getElementById('bulkCandidateNames').value;
+            const names = bulkText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+            if (names.length > 0) {
+                await callAPI('BATCH_ADD_CANDIDATES', { names, region, party });
+                document.getElementById('bulkCandidateNames').value = '';
+                bootstrap.Modal.getInstance(document.getElementById('addCandidateModal')).hide();
+            } else {
+                alert("กรุณาป้อนรายชื่ออย่างน้อย 1 รายการ");
+            }
+        }
+    } catch (e) {
+        alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+function openAddPartyModal() {
+    editingId = null;
+    document.getElementById('newPartyName').value = '';
+    document.getElementById('newPartyNumber').value = '';
+    new bootstrap.Modal('#addPartyModal').show();
+}
+
+async function saveParty() {
+    const isSingle = document.getElementById('single-party-tab').classList.contains('active');
+    const btn = document.getElementById('btnSaveParty');
+
+    btn.disabled = true;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...';
+
+    try {
+        if (isSingle) {
+            const name = document.getElementById('newPartyName').value.trim();
+            const number = document.getElementById('newPartyNumber').value;
+            if (name) {
+                if (editingId) {
+                    await callAPI('UPDATE_PARTY', { name, number }, editingId);
+                } else {
+                    await callAPI('ADD_PARTY', { name, number });
+                }
+                document.getElementById('newPartyName').value = '';
+                document.getElementById('newPartyNumber').value = '';
+                bootstrap.Modal.getInstance(document.getElementById('addPartyModal')).hide();
+            } else {
+                alert("กรุณาระบุชื่อพรรคการเมือง");
+                return;
+            }
+        } else {
+            const bulkText = document.getElementById('bulkPartyNames').value;
+            const names = bulkText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+            if (names.length > 0) {
+                await callAPI('BATCH_ADD_PARTIES', { names });
+                document.getElementById('bulkPartyNames').value = '';
+                bootstrap.Modal.getInstance(document.getElementById('addPartyModal')).hide();
+            } else {
+                alert("กรุณาป้อนชื่อพรรคอย่างน้อย 1 รายการ");
+            }
+        }
+    } catch (e) {
+        alert("เกิดข้อผิดพลาดในการบันทึกข้อมูลพรรค");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+async function deleteEntry(type, id) {
+    if (!id) {
+        alert("ไม่พบรหัสข้อมููลที่ต้องการลบ");
+        return;
+    }
+
+    if (confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?`)) {
+        console.log(`Attempting to delete ${type} with ID:`, id);
+        const success = await callAPI(`DELETE_${type}`, {}, id);
+        if (success) {
+            // โหลดข้อมูลใหม่หลังจากลบสำเร็จ
+            await reloadData();
+        }
+    }
+}
+
+async function confirmResetVotes() {
+    if (confirm("ล้างคะแนนเลือกตั้งทั้งหมด? ไม่สามารถกู้คืนได้!")) {
+        await callAPI('RESET_VOTES');
+    }
+}
+
+// 5. Utils & Charts
+function formatRegionName(region) {
+    const names = { 'east': 'ตะวันออก', 'south': 'ใต้', 'north': 'เหนือ', 'central': 'กลาง' };
+    return names[region] || region;
+}
+
+function renderCharts(partyData, regionData) {
+    if (partyChart) partyChart.destroy();
+    if (regionChart) regionChart.destroy();
+
+    const partyKeys = Object.keys(partyData);
+    const regionKeys = Object.keys(regionData);
+
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false, // จะใช้การล็อคความสูงจาก container แทน
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    usePointStyle: true,
+                    padding: 20,
+                    font: { family: 'Sarabun', size: 12 }
+                }
+            },
+            tooltip: { bodyFont: { family: 'Sarabun' }, titleFont: { family: 'Sarabun' } }
+        }
+    };
+
+    // 1. Party Doughnut Chart
+    partyChart = new Chart(document.getElementById('partyChart'), {
+        type: 'doughnut',
+        data: {
+            labels: partyKeys.length > 0 ? partyKeys : ['ยังไม่มีคะแนน'],
+            datasets: [{
+                data: partyKeys.length > 0 ? Object.values(partyData) : [1],
+                backgroundColor: partyKeys.length > 0 ? ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'] : ['#f1f5f9'],
+                hoverOffset: 15, borderRadius: 10, borderWeight: 0, cutout: '65%'
+            }]
+        },
+        options: {
+            ...commonOptions,
+            maintainAspectRatio: false, // ปรับให้เป็น false เพื่อไม่ให้ล้นความสูง 350px
+        }
+    });
+
+    // 2. Region Bar Chart
+    regionChart = new Chart(document.getElementById('regionChart'), {
+        type: 'bar',
+        data: {
+            labels: regionKeys.length > 0 ? regionKeys.map(r => formatRegionName(r)) : ['รอข้อมูลภูมิภาค'],
+            datasets: [{
+                label: 'ผู้ใช้สิทธิ',
+                data: regionKeys.length > 0 ? Object.values(regionData) : [0],
+                backgroundColor: '#10b981',
+                borderRadius: 8, barThickness: 25
+            }]
+        },
+        options: {
+            ...commonOptions,
+            maintainAspectRatio: false,
+            scales: {
+                y: { grid: { display: true, color: '#f1f5f9' }, beginAtZero: true },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
