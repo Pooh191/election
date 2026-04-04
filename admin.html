@@ -321,30 +321,32 @@
                                 <div style="height: 180px;"><canvas id="partyChart"></canvas></div>
                             </div>
                             
-                            <div class="metric-card h-50 p-4" style="background: linear-gradient(135deg, #4f46e5, #4338ca); border:none; color: white;">
+                            <div class="metric-card h-50 p-4" style="background: linear-gradient(135deg, #4f46e5, #4338ca); border:none; color: white; min-height: 240px;">
                                 <div class="d-flex justify-content-center flex-column h-100">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <h6 class="fw-bold mb-0">สูตรคำนวณเก้าอี้</h6>
-                                        <i class="bi bi-info-circle opacity-50" title="party = คะแนนพรรค, divisor = ตัวหาร, total = ทั้งหมด, validTotal = คะแนนเฉพาะพรรค"></i>
+                                        <i class="bi bi-info-circle opacity-75" title="party = คะแนนพรรค, divisor = ตัวหาร, total = ทั้งหมด, validTotal = คะแนนเฉพาะพรรค"></i>
                                     </div>
-                                    <div class="mb-2 text-white-50 small">สูตรปัจจุบัน:</div>
-                                    <div class="font-monospace fw-bold mb-3" style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 8px; font-size: 0.8rem; overflow-x: auto;">
+                                    <div class="mb-2 text-white-75 small">สูตรปัจจุบัน:</div>
+                                    <div class="font-monospace fw-bold mb-3" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.15); padding: 12px; border-radius: 12px; font-size: 0.9rem; overflow-x: auto; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                                         (party * <span id="displayDivisor">11</span>) / total
                                     </div>
-                                    <div class="input-group input-group-sm mb-3">
-                                        <span class="input-group-text bg-white bg-opacity-20 border-0 text-white">ตัวหาร</span>
-                                        <input type="number" id="seatDivisor" class="form-control border-0 bg-white bg-opacity-10 text-white shadow-none" value="11" min="1" step="0.1" oninput="updateUI()">
-                                        <button class="btn" style="background-color: #ffd166; color: #1e1e1e; font-weight: bold; border: none; padding-left: 15px; padding-right: 15px;" onclick="saveFormula()" id="btnSaveFormula">บันทึก</button>
+                                    <div class="input-group input-group-sm mb-3" style="border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2);">
+                                        <span class="input-group-text border-0 text-white fw-bold" style="background: rgba(255,255,255,0.15); min-width: 70px; justify-content: center;">ตัวหาร</span>
+                                        <input type="number" id="seatDivisor" class="form-control border-0 text-white shadow-none ps-3" style="background: rgba(255,255,255,0.05);" value="11" min="1" step="0.1" oninput="updateUI()">
+                                        <button class="btn" style="background-color: #ffd166; color: #1e1e1e; font-weight: 800; border: none; padding-left: 18px; padding-right: 18px;" onclick="saveFormula()" id="btnSaveFormula">บันทึก</button>
                                     </div>
-                                    <div class="small text-white-50" style="font-size: 0.7rem;">
-                                        💡 เคล็ดลับ: ใช้ <b>validTotal</b> แทน total หากต้องการกระจายเก้าอี้เฉพาะพรรค
+
+                                    <div class="small text-white mb-2" style="font-size: 0.75rem; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 10px;">
+                                        <i class="bi bi-lightbulb-fill text-warning me-1"></i> <span class="opacity-75">เคล็ดลับ: ใช้</span> <b>validTotal</b> <span class="opacity-75">แทน total เพื่อกระจายเก้าอี้เฉพาะพรรคที่ลงแข่ง</span>
                                     </div>
                                     <input type="hidden" id="seatFormula" value="(party * divisor) / validTotal">
-                                    <div id="calcStatus" class="small fw-bold text-info-soft mt-1">
+                                    <div id="calcStatus" class="small fw-bold text-info-soft mt-1" style="color: #a5f3fc !important;">
                                         <i class="bi bi-check-circle-fill me-1"></i> ระบบคำนวณอัตโนมัติ
                                     </div>
                                 </div>
                             </div>
+
 
                         </div>
 
