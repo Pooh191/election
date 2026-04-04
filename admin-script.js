@@ -255,16 +255,28 @@ function renderPartiesTable() {
         const party = partyVotes[p.name] || 0;
         const percent = total > 0 ? ((party / total) * 100).toFixed(1) : "0.0";
 
-        let seats = "0.00";
+        let seats = "0";
         if (total > 0) {
             try {
-                // Provide party, total (all), validTotal (parties only), and divisor to the formula
+                // ให้เลือกใช้ validTotal เป็นหลักเพื่อให้ยอดรวมพรรคได้ใกล้เคียง 11 (divisor) ที่สุด
                 const calc = new Function('party', 'total', 'validTotal', 'divisor', `return ${formulaStr}`);
-                seats = calc(party, total, validTotal, divisor).toFixed(2);
+                
+                // ถ้้าผู้ใช้ไม่ได้แก้สูตรเอง ให้ใช้ validTotal แทน total อัตโนมัติเพื่อให้ปัดเศษแล้วลงล็อค 11
+                let effectiveFormula = formulaStr;
+                if (effectiveFormula === "(party * divisor) / total") {
+                    effectiveFormula = "(party * divisor) / validTotal";
+                }
+                
+                const finalCalc = new Function('party', 'total', 'validTotal', 'divisor', `return ${effectiveFormula}`);
+                const rawSeats = finalCalc(party, total, validTotal, divisor);
+                
+                // ปัดเศษตามคำขอ (Round to nearest integer)
+                seats = Math.round(rawSeats);
             } catch (e) {
                 seats = "Err!";
             }
         }
+
 
         // 1. Render in Parties Tab
         const row = document.createElement('tr');
@@ -298,13 +310,8 @@ function renderPartiesTable() {
     const noVotesCount = total - validTotal;
     if (noVotesCount > 0) {
         const percent = total > 0 ? ((noVotesCount / total) * 100).toFixed(1) : "0.0";
-        let seats = "0.00";
-        try {
-            const calc = new Function('party', 'total', 'validTotal', 'divisor', `return ${formulaStr}`);
-            seats = calc(noVotesCount, total, validTotal, divisor).toFixed(2);
-        } catch (e) {
-            seats = "0.00";
-        }
+        let seats = "-"; // ไม่ต้องมีเก้าอี้ตามคำสั่ง
+
 
         const noVoteRow = document.createElement('tr');
         noVoteRow.className = "table-light opacity-75";
