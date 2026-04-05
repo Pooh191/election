@@ -130,6 +130,11 @@ async function reloadData() {
                 const seatFormulaEl = document.getElementById('seatFormula');
                 if (seatFormulaEl) seatFormulaEl.value = globalData.settings.seatFormula;
             }
+            
+            if (globalData.settings.electionMode) {
+                const modeRadio = document.querySelector(`input[name="electionMode"][value="${globalData.settings.electionMode}"]`);
+                if (modeRadio) modeRadio.checked = true;
+            }
         }
 
         updateUI();
@@ -284,14 +289,15 @@ function renderPartiesTable() {
     (globalData.parties || []).forEach(p => {
         const party = partyVotes[p.name] || 0;
         const percent = total > 0 ? ((party / total) * 100).toFixed(1) : "0.0";
+        const maxListSeats = parseInt(p.list_count) || 0;
 
-        let seats = "0";
+        let seats = 0;
+        let originalSeats = 0;
+        let isCapped = false;
+
         if (total > 0) {
             try {
                 // ให้เลือกใช้ validTotal เป็นหลักเพื่อให้ยอดรวมพรรคได้ใกล้เคียง 11 (divisor) ที่สุด
-                const calc = new Function('party', 'total', 'validTotal', 'divisor', `return ${formulaStr}`);
-                
-                // ถ้้าผู้ใช้ไม่ได้แก้สูตรเอง ให้ใช้ validTotal แทน total อัตโนมัติเพื่อให้ปัดเศษแล้วลงล็อค 11
                 let effectiveFormula = formulaStr;
                 if (effectiveFormula === "(party * divisor) / total") {
                     effectiveFormula = "(party * divisor) / validTotal";
@@ -301,7 +307,14 @@ function renderPartiesTable() {
                 const rawSeats = finalCalc(party, total, validTotal, divisor);
                 
                 // ปัดเศษตามคำขอ (Round to nearest integer)
-                seats = Math.round(rawSeats);
+                originalSeats = Math.round(rawSeats);
+                seats = originalSeats;
+
+                // ตรวจสอบการจำกัดจำนวนบัญชีรายชื่อ (Capping)
+                if (maxListSeats > 0 && seats > maxListSeats) {
+                    seats = maxListSeats;
+                    isCapped = true;
+                }
             } catch (e) {
                 seats = "Err!";
             }
@@ -309,7 +322,7 @@ function renderPartiesTable() {
 
 
         const regSeats = regionWinnerSeats[p.name] || 0;
-        const totalSeats = parseInt(regSeats) + parseInt(seats);
+        const totalSeats = parseInt(regSeats) + (parseInt(seats) || 0);
 
         sumPartyVotes += party;
         sumRegSeats += regSeats;
@@ -322,9 +335,13 @@ function renderPartiesTable() {
         row.innerHTML = `
             <td class="ps-4 fw-bold text-primary">เบอร์ ${p.number || '-'}</td>
             <td class="fw-bold text-bold">${p.name}</td>
+            <td class="text-center"><span class="badge bg-light text-muted border px-3">${maxListSeats > 0 ? maxListSeats + ' คน' : 'ไม่ระบุ'}</span></td>
             <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
             <td class="text-center"><span class="fw-bold">${regSeats}</span></td>
-            <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
+            <td class="text-center">
+                <span class="fw-bold ${isCapped ? 'text-danger' : 'text-muted'}">${seats}</span>
+                ${isCapped ? `<i class="bi bi-exclamation-triangle-fill text-danger ms-1" title="จำกัดแค่ ${maxListSeats} ตามที่ส่งจริง (จากเดิม ${originalSeats})"></i>` : ''}
+            </td>
             <td class="text-center"><span class="fw-bold text-primary" style="font-size: 1.1rem;">${totalSeats}</span></td>
             <td class="text-end pe-4">
                 <button class="btn btn-sm btn-outline-primary border-0 rounded-3 p-2 me-1" onclick="editEntry('PARTY', '${p.id}')"><i class="bi bi-pencil-square"></i></button>
@@ -340,7 +357,9 @@ function renderPartiesTable() {
                 <td class="fw-bold"><span class="text-primary me-2">เบอร์ ${p.number || '-'}</span> ${p.name}</td>
                 <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
                 <td class="text-center"><span class="fw-bold text-muted">${regSeats}</span></td>
-                <td class="text-center"><span class="fw-bold text-muted">${seats}</span></td>
+                <td class="text-center">
+                    <span class="fw-bold ${isCapped ? 'text-danger' : 'text-muted'}">${seats}</span>
+                </td>
                 <td class="text-center"><span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill fs-6">${totalSeats}</span></td>
             `;
             overviewBody.appendChild(overviewRow);
@@ -575,15 +594,18 @@ function renderFullReport() {
 async function saveSettings() {
     const startTime = document.getElementById('startTime').value;
     const endTime = document.getElementById('endTime').value;
+    const electionModeEl = document.querySelector('input[name="electionMode"]:checked');
+    const electionMode = electionModeEl ? electionModeEl.value : 'both';
 
     const btn = document.querySelector('button[onclick="saveSettings()"]');
+    if (!btn) return;
     const originalText = btn.innerHTML;
 
     try {
         btn.disabled = true;
         btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...`;
 
-        await callAPI('UPDATE_SETTINGS', { startTime, endTime });
+        await callAPI('UPDATE_SETTINGS', { startTime, endTime, electionMode });
         await reloadData(); // Sync with server for certainty
         alert("บันทึกการตั้งค่าเวลาเรียบร้อยแล้ว");
     } catch (error) {
@@ -790,6 +812,7 @@ function editEntry(type, id) {
         if (p) {
             document.getElementById('newPartyNumber').value = p.number || '';
             document.getElementById('newPartyName').value = p.name || '';
+            document.getElementById('newPartyListCount').value = p.list_count || 0;
             document.getElementById('single-party-tab').click();
             new bootstrap.Modal('#addPartyModal').show();
         }
@@ -917,6 +940,7 @@ function openAddPartyModal() {
     editingId = null;
     document.getElementById('newPartyName').value = '';
     document.getElementById('newPartyNumber').value = '';
+    document.getElementById('newPartyListCount').value = '0';
     new bootstrap.Modal('#addPartyModal').show();
 }
 
@@ -932,14 +956,17 @@ async function saveParty() {
         if (isSingle) {
             const name = document.getElementById('newPartyName').value.trim();
             const number = document.getElementById('newPartyNumber').value;
+            const listCount = parseInt(document.getElementById('newPartyListCount').value) || 0;
+            
             if (name) {
                 if (editingId) {
-                    await callAPI('UPDATE_PARTY', { name, number }, editingId);
+                    await callAPI('UPDATE_PARTY', { name, number, listCount }, editingId);
                 } else {
-                    await callAPI('ADD_PARTY', { name, number });
+                    await callAPI('ADD_PARTY', { name, number, listCount });
                 }
                 document.getElementById('newPartyName').value = '';
                 document.getElementById('newPartyNumber').value = '';
+                document.getElementById('newPartyListCount').value = '0';
                 bootstrap.Modal.getInstance(document.getElementById('addPartyModal')).hide();
             } else {
                 alert("กรุณาระบุชื่อพรรคการเมือง");
