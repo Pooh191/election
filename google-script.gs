@@ -190,7 +190,7 @@ function handleAddEntry(ss, sheetName, data) {
   }
   if (sheetName === SHEET_NAMES.VOTERS) sheet.appendRow([id, cleanName, data.region]);
   else if (sheetName === SHEET_NAMES.CANDIDATES) sheet.appendRow([id, data.number, cleanName, data.region, data.party]);
-  else if (sheetName === SHEET_NAMES.PARTIES) sheet.appendRow([id, data.number || "-", cleanName]);
+  else if (sheetName === SHEET_NAMES.PARTIES) sheet.appendRow([id, data.number || "-", cleanName, data.listCount || 0]);
   return createJSONResponse({ result: "success", id: id });
 }
 
@@ -210,7 +210,7 @@ function handleBatchAdd(ss, sheetName, data) {
     const clean = name.trim();
     if (clean && !existingNames.has(clean.toLowerCase())) {
         const id = "ID-" + (baseTime + i);
-        if (sheetName === SHEET_NAMES.PARTIES) rows.push([id, "-", clean]);
+        if (sheetName === SHEET_NAMES.PARTIES) rows.push([id, "-", clean, 0]);
         else if (sheetName === SHEET_NAMES.CANDIDATES) rows.push([id, "-", clean, data.region, data.party || ""]);
         else rows.push([id, clean, data.region]);
         existingNames.add(clean.toLowerCase());
@@ -228,7 +228,7 @@ function handleUpdateEntry(ss, sheetName, id, data) {
   const row = rowIdx + 1;
   if (sheetName === SHEET_NAMES.VOTERS) sheet.getRange(row, 2, 1, 2).setValues([[data.name, data.region]]);
   else if (sheetName === SHEET_NAMES.CANDIDATES) sheet.getRange(row, 2, 1, 4).setValues([[data.number, data.name, data.region, data.party]]);
-  else if (sheetName === SHEET_NAMES.PARTIES) sheet.getRange(row, 2, 1, 2).setValues([[data.number, data.name]]);
+  else if (sheetName === SHEET_NAMES.PARTIES) sheet.getRange(row, 2, 1, 3).setValues([[data.number, data.name, data.listCount || 0]]);
   return createJSONResponse({ result: "success" });
 }
 
@@ -267,7 +267,7 @@ function ensureSheets(ss) {
   const config = [
     { name: SHEET_NAMES.VOTERS, head: ["id", "name", "region"] },
     { name: SHEET_NAMES.CANDIDATES, head: ["id", "number", "name", "region", "party"] },
-    { name: SHEET_NAMES.PARTIES, head: ["id", "number", "name"] },
+    { name: SHEET_NAMES.PARTIES, head: ["id", "number", "name", "list_count"] },
     { name: SHEET_NAMES.VOTES, head: ["timestamp", "voter", "region", "candidate", "party", "ip"] },
     { name: SHEET_NAMES.SETTINGS, head: ["key", "value"] }
   ];
