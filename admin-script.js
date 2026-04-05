@@ -90,7 +90,10 @@ window.onload = () => {
 async function reloadData() {
     showTableLoaders();
     try {
-        const response = await fetch(SCRIPT_URL);
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'GET_DATA' })
+        });
         globalData = await response.json();
 
         // Populate Settings UI
@@ -146,8 +149,8 @@ function showTableLoaders() {
 function updateUI() {
     const votes = globalData.votes || [];
     const voters = globalData.voters || [];
-
-    // Updates Metrics
+    
+    // Updates Metrics (Show ALL)
     document.getElementById('totalVotes').textContent = votes.length.toLocaleString();
     document.getElementById('totalVoters').textContent = voters.length.toLocaleString();
 
@@ -163,7 +166,7 @@ function updateUI() {
         else progressBar.className = "progress-bar bg-warning";
     }
 
-    // Chart Data Preparation
+    // Chart Data Preparation - Show ALL regions
     const partyCounts = {};
     const regionCounts = { 'east': 0, 'south': 0, 'north': 0, 'central': 0 };
     votes.forEach(v => {
@@ -179,6 +182,7 @@ function updateUI() {
     renderVotesLogTable();
     renderCandidateSummary();
     renderFullReport();
+    renderRegionStatusTable();
 }
 
 let editingId = null;
@@ -237,28 +241,28 @@ function renderPartiesTable() {
     const divisor = parseFloat(document.getElementById('seatDivisor').value) || 1;
     const formulaEl = document.getElementById('seatFormula');
     const formulaStr = formulaEl ? formulaEl.value : "(party * divisor) / total";
-    const total = globalData.votes.length;
-
     body.innerHTML = '';
     if (overviewBody) overviewBody.innerHTML = '';
+    const registeredParties = (globalData.parties || []).map(p => p.name);
+
+    // Show ALL votes in table
+    const filteredVotes = globalData.votes || [];
+    const total = filteredVotes.length;
 
     const partyVotes = {};
-    globalData.votes.forEach(v => {
+    filteredVotes.forEach(v => {
         partyVotes[v.party] = (partyVotes[v.party] || 0) + 1;
     });
 
-    // Calculate sum of votes for registered parties only
-    const registeredParties = (globalData.parties || []).map(p => p.name);
-    const validTotal = globalData.votes.filter(v => registeredParties.includes(v.party)).length;
+    const validTotal = filteredVotes.filter(v => registeredParties.includes(v.party)).length;
 
     // Calculate Regional Winners (ส.ส. เขต)
     const regionWinnerSeats = {}; // party name -> seat count
     const regions = ['central', 'north', 'south', 'east'];
-    const votes = globalData.votes || [];
     const candidates = globalData.candidates || [];
 
     regions.forEach(r => {
-        const rVotes = votes.filter(v => v.region === r && v.candidate && v.candidate !== 'ไม่ประสงค์ลงคะแนน' && v.candidate !== 'ไม่ได้เลือก');
+        const rVotes = filteredVotes.filter(v => v.region === r && v.candidate && v.candidate !== 'ไม่ประสงค์ลงคะแนน' && v.candidate !== 'ไม่ได้เลือก');
         if (rVotes.length > 0) {
             const counts = {};
             rVotes.forEach(v => counts[v.candidate] = (counts[v.candidate] || 0) + 1);
@@ -414,7 +418,7 @@ function renderPartiesTable() {
     // Suggest formula fix if it doesn't total to divisor
     const status = document.getElementById('calcStatus');
     if (status) {
-        status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> คำนวณจากยอดรวม ${total} คะแนน`;
+        status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> คำนวณจากยอดรวม ${filteredVotes.length} คะแนน (เฉพาะเขตที่เปิดหีบ)`;
         if (noVotesCount > 0) {
             status.innerHTML += ` <span class="text-warning small ms-2">(มีไม่ประสงค์ลงคะแนน ${noVotesCount})</span>`;
         }
@@ -492,6 +496,7 @@ function renderCandidateSummary() {
 
     const candVotes = {};
     const candRegion = {};
+
     globalData.votes.forEach(v => {
         if (v.candidate && v.candidate !== 'ไม่ได้เลือก' && v.candidate !== 'ไม่ประสงค์ลงคะแนน') {
             candVotes[v.candidate] = (candVotes[v.candidate] || 0) + 1;
@@ -527,31 +532,15 @@ function renderFullReport() {
     // Metrics
     const votes = globalData.votes || [];
     const voters = globalData.voters || [];
+
     const noVotes = votes.filter(v => v.candidate === 'ไม่ประสงค์ลงคะแนน' || v.candidate === 'ไม่ได้เลือก').length;
 
     document.getElementById('reportTotalVotes').innerText = votes.length.toLocaleString();
     document.getElementById('reportTotalVoters').innerText = voters.length.toLocaleString();
     document.getElementById('reportVoteRate').innerText = (voters.length > 0 ? Math.round((votes.length / voters.length) * 100) : 0) + "%";
     document.getElementById('reportNoVote').innerText = noVotes.toLocaleString();
-
-    // Party List
-    const partyStats = {};
-    votes.forEach(v => { if (v.party && v.party !== 'ไม่ประสงค์ลงคะแนน') partyStats[v.party] = (partyStats[v.party] || 0) + 1; });
-
-    const partyContainer = document.getElementById('reportPartyList');
-    partyContainer.innerHTML = '';
-    (globalData.parties || []).forEach(p => {
-        const count = partyStats[p.name] || 0;
-        const col = document.createElement('div');
-        col.className = 'col';
-        col.innerHTML = `
-            <div class="d-flex justify-content-between p-3 border rounded-4 bg-light bg-opacity-50">
-                <span class="fw-bold"><span class="text-primary me-2">เบอร์ ${p.number}</span> ${p.name}</span>
-                <span class="fw-bold">${count.toLocaleString()} คะแนน</span>
-            </div>
-        `;
-        partyContainer.appendChild(col);
-    });
+    
+    // ...
 
     // Regional Winners
     const regionWinners = {};
@@ -691,6 +680,88 @@ function handleLocalStateUpdate(action, data, id) {
 
     updateUI(); // วาดตารางใหม่ทันทีจากข้อมูลในหน่วยความจำ
 }
+
+// --- District Management Logic ---
+function renderRegionStatusTable() {
+    const body = document.getElementById('regionStatusTableBody');
+    if (!body) return;
+
+    const regions = [
+        { id: 'central', name: 'ภาคกลาง' },
+        { id: 'north', name: 'ภาคเหนือ' },
+        { id: 'south', name: 'ภาคใต้' },
+        { id: 'east', name: 'ภาคตะวันออก' }
+    ];
+
+    const openStatus = globalData.settings.region_open_status ? JSON.parse(globalData.settings.region_open_status) : {};
+    
+    body.innerHTML = '';
+    regions.forEach(r => {
+        const isOpen = openStatus[r.id] !== false; // Default is true if not set
+        const regionVotesCount = (globalData.votes || []).filter(v => v.region === r.id).length;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <div class="fw-bold fs-5">${r.name}</div>
+                <div class="small text-muted">มีข้อมูลอยู่แล้ว: <strong>${regionVotesCount.toLocaleString()}</strong> คะแนน</div>
+            </td>
+            <td class="text-center">
+                <div class="form-check form-switch d-inline-block">
+                    <input class="form-check-input" type="checkbox" role="switch" id="switch-${r.id}" ${isOpen ? 'checked' : ''} onchange="toggleRegionOpen('${r.id}', this.checked)" style="width: 3.5em; height: 1.75em; cursor: pointer;">
+                    <label class="form-check-label ms-2 fw-bold ${isOpen ? 'text-success' : 'text-danger'}" for="switch-${r.id}">
+                        ${isOpen ? '<i class="bi bi-unlock-fill me-1"></i> เปิดหีบแล้ว' : '<i class="bi bi-lock-fill me-1"></i> ปิดหีบอยู่'}
+                    </label>
+                </div>
+            </td>
+            <td class="text-end">
+                <button class="btn btn-outline-danger rounded-4 px-4 font-bold" onclick="confirmDeleteRegionData('${r.id}', '${r.name}')" ${regionVotesCount === 0 ? 'disabled' : ''}>
+                    <i class="bi bi-trash3-fill me-2"></i> ลบข้อมูลคะแนนเขตนี้
+                </button>
+            </td>
+        `;
+        body.appendChild(row);
+    });
+}
+
+async function toggleRegionOpen(regionId, isOpen) {
+    const openStatus = globalData.settings.region_open_status ? JSON.parse(globalData.settings.region_open_status) : {};
+    openStatus[regionId] = isOpen;
+    
+    try {
+        await callAPI('UPDATE_SETTINGS', { region_open_status: JSON.stringify(openStatus) });
+        // UI updates automatically via callAPI -> handleLocalStateUpdate -> updateUI
+    } catch (e) {
+        alert("ไม่สามารถบันทึกสถานะได้: " + e.message);
+        reloadData();
+    }
+}
+
+function confirmDeleteRegionData(regionId, regionName) {
+    if (confirm(`⚠️ คุณแน่ใจหรือไม่ที่จะลบข้อมูลคะแนนทั้งหมดของ "${regionName}"?\n\nการลบนี้จะไม่สามารถย้อนกลับได้!`)) {
+        deleteRegionData(regionId);
+    }
+}
+
+async function deleteRegionData(regionId) {
+    const btn = document.querySelector(`button[onclick*="deleteRegionData('${regionId}')"]`);
+    if (btn) btn.disabled = true;
+
+    try {
+        const success = await callAPI('DELETE_REGION_DATA', { region: regionId });
+        if (success) {
+            // Local state update for DELETE_REGION_DATA is not handled in handleLocalStateUpdate yet
+            globalData.votes = globalData.votes.filter(v => v.region !== regionId);
+            updateUI();
+            alert("ลบข้อมูลคะแนนรายเขตเรียบร้อยแล้ว");
+        }
+    } catch (e) {
+        alert("เกิดข้อผิดพลาด: " + e.message);
+    } finally {
+        reloadData(); // Full sync to be safe
+    }
+}
+
 
 // Modals & Management
 function editEntry(type, id) {
