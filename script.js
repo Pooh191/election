@@ -80,6 +80,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ตั้งค่า UI เริ่มต้น
+    const mode = (electionData.settings && electionData.settings.electionMode) ? electionData.settings.electionMode : 'both';
+    if (mode === 'regional') document.getElementById('dot-party').classList.add('d-none');
+    if (mode === 'party') document.getElementById('dot-region').classList.add('d-none');
+
     initVoters();
     initParties();
     
@@ -126,7 +130,10 @@ function showElectionClosed(message) {
 
 async function fetchElectionData() {
     try {
-        const response = await fetch(SCRIPT_URL);
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'GET_DATA' })
+        });
         electionData = await response.json();
     } catch (err) {
         console.error("Fetch error:", err);
@@ -143,16 +150,27 @@ function initVoters() {
         return;
     }
 
+    const openStatus = (electionData.settings && electionData.settings.region_open_status) ? JSON.parse(electionData.settings.region_open_status) : {};
     const votedNames = new Set(electionData.votes.map(v => v.voter));
 
+    let visibleCount = 0;
     electionData.voters.forEach(voter => {
+        const isRegionOpen = openStatus[voter.region] !== false;
         const hasVoted = votedNames.has(voter.name);
+        
+        // ✅ กรองออก: ถ้าเขตปิดอยู่ หรือ ลงคะแนนไปแล้ว ให้ "ไม่ปรากฏ" ในรายการ
+        if (!isRegionOpen || hasVoted) return;
+
         const option = document.createElement('option');
         option.value = voter.region;
-        option.textContent = voter.name + (hasVoted ? " (✅ ลงคะแนนแล้ว)" : "");
-        if (hasVoted) option.disabled = true;
+        option.textContent = voter.name;
         select.appendChild(option);
+        visibleCount++;
     });
+
+    if (visibleCount === 0) {
+        select.innerHTML = '<option disabled>ไม่มีรายชื่อผู้มีสิทธิที่ยังไม่ได้ลงคะแนนในขณะนี้</option>';
+    }
 }
 
 function renderRegionalCandidates(region) {
@@ -240,15 +258,54 @@ function createSelectionItem(type, id, name, groupName, number = null, partyName
 
 // 2. Navigation & UI Logic
 function nextStep(step) {
+    const mode = (electionData.settings && electionData.settings.electionMode) ? electionData.settings.electionMode : 'both';
+    
     if (step === 1) {
         const voterSelect = document.getElementById('voterSelect');
         if (!voterSelect.value) {
             alert("⚠️ กรุณาเลือกชื่อของท่านก่อนดำเนินการต่อ");
             return;
         }
-        renderRegionalCandidates(voterSelect.value);
-        showStep('region');
-        updateProgress(1);
+        
+        // ตรวจสอบการเปิดหีบรายเขต
+        const region = voterSelect.value;
+        const openStatus = (electionData.settings && electionData.settings.region_open_status) ? JSON.parse(electionData.settings.region_open_status) : {};
+        if (openStatus[region] === false) {
+            alert("⏳ เขตพื้นที่ของท่านยังไม่เปิดให้ลงคะแนน หรือปิดหีบชั่วคราว");
+            return;
+        }
+
+        currentRegion = region; // เก็บ region ไว้ใช้ข้าม step
+        
+        if (mode === 'party') {
+            // ข้าม Step 2 ไป Step 3 (Party)
+            showStep(6);
+            updateProgress(2);
+            document.getElementById('backToRegionBtn').onclick = () => { prevStep(1); };
+        } else {
+            // ไป Step 2 (Region)
+            renderRegionalCandidates(region);
+            showStep('region');
+            updateProgress(1);
+
+            // ปรับปุ่มขวามือของ Step 2
+            const nextBtn = document.getElementById('btnNextFromRegion');
+            if (mode === 'regional') {
+                nextBtn.innerHTML = 'ยืนยันการส่งคะแนน <i class="bi bi-send-check ms-2"></i>';
+                // ถ้าเป็น regional only ให้หน้า 2 เป็นหน้าสุดท้าย (เปลี่ยน type เป็น submit)
+                nextBtn.onclick = () => {
+                    const form = document.getElementById('electionForm');
+                    if (!document.querySelector('input[name="mp_regional"]:checked')) {
+                        alert("⚠️ โปรดเลือกผู้สมัคร ส.ส. 1 ท่านก่อน");
+                        return;
+                    }
+                    form.requestSubmit(); // สั่ง submit ฟอร์มจากปุ่ม
+                };
+            } else {
+                nextBtn.innerHTML = 'ขั้นตอนต่อไป <i class="bi bi-arrow-right ms-2"></i>';
+                nextBtn.onclick = () => { nextStep(6); };
+            }
+        }
     } else if (step === 6) {
         if (!document.querySelector('input[name="mp_regional"]:checked')) {
             alert("⚠️ โปรดเลือกผู้สมัคร ส.ส. 1 ท่านก่อน");
