@@ -336,18 +336,11 @@
                                         <input type="number" id="seatDivisor" class="form-control border-0 text-white shadow-none ps-3" style="background: rgba(255,255,255,0.05);" value="11" min="1" step="0.1" oninput="updateUI()">
                                         <button class="btn" style="background-color: #ffd166; color: #1e1e1e; font-weight: 800; border: none; padding-left: 18px; padding-right: 18px;" onclick="saveFormula()" id="btnSaveFormula">บันทึก</button>
                                     </div>
-
-                                    <div class="small text-white mb-2" style="font-size: 0.75rem; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 10px;">
-                                        <i class="bi bi-lightbulb-fill text-warning me-1"></i> <span class="opacity-75">เคล็ดลับ: ใช้</span> <b>validTotal</b> <span class="opacity-75">แทน total เพื่อกระจายเก้าอี้เฉพาะพรรคที่ลงแข่ง</span>
-                                    </div>
-                                    <input type="hidden" id="seatFormula" value="(party * divisor) / validTotal">
                                     <div id="calcStatus" class="small fw-bold text-info-soft mt-1" style="color: #a5f3fc !important;">
                                         <i class="bi bi-check-circle-fill me-1"></i> ระบบคำนวณอัตโนมัติ
                                     </div>
                                 </div>
                             </div>
-
-
                         </div>
 
                         <div class="col-lg-4">
@@ -372,7 +365,7 @@
                                         </tr>
                                     </thead>
                                     <tbody id="overviewCandidateBody">
-                                        <!-- ข้อมูลจะถูกดึงมาแสดงด้วย JS -->
+                                        <!-- JS Render -->
                                     </tbody>
                                 </table>
                             </div>
@@ -422,8 +415,7 @@
                     </div>
                     <div class="step-card p-4 overflow-hidden">
                         <table class="table table-premium align-middle mb-0">
-                            <thead><tr class="text-muted small fw-bold"><th>เบอร์</th><th>ชื่อพรรค</th><th class="text-center">คะแนนโหวต</th><th class="text-center">ส.ส. เขต</th><th class="text-center">บัญชีรายชื่อ</th><th class="text-center text-primary">รวมเก้าอี้</th><th class="text-end pe-4">ACTIONS</th></tr></thead>
-
+                            <thead><tr class="text-muted small fw-bold"><th>เบอร์</th><th>ชื่อพรรค</th><th class="text-center">บัญชีที่ส่ง</th><th class="text-center">คะแนนโหวต</th><th class="text-center">ส.ส. เขต</th><th class="text-center">ส.ส. บัญชี</th><th class="text-center text-primary">รวมเก้าอี้</th><th class="text-end pe-4">ACTIONS</th></tr></thead>
                             <tbody id="partyTableBody"></tbody>
                         </table>
                     </div>
@@ -534,16 +526,36 @@
                     <div class="row g-4">
                         <div class="col-lg-7">
                             <div class="step-card p-5 h-100 border-0 shadow-sm" style="background: linear-gradient(145deg, #ffffff, #f8fafc);">
-                                <div class="d-flex align-items-center mb-4">
-                                    <div class="bg-primary-soft p-3 rounded-4 me-3">
-                                        <i class="bi bi-clock-history fs-3 text-primary"></i>
+                                <div class="mb-4">
+                                    <label class="form-label small fw-bold text-muted mb-2">ประเภทการเลือกตั้ง (Election Mode)</label>
+                                    <div class="d-flex gap-3">
+                                        <div class="flex-fill">
+                                            <input type="radio" class="btn-check" name="electionMode" id="modeBoth" value="both" checked onchange="saveSettings()">
+                                            <label class="btn btn-outline-primary w-100 py-3 rounded-4 fw-bold" for="modeBoth">
+                                                <i class="bi bi-grid-fill d-block mb-1 fs-5"></i>
+                                                เขต + บัญชี
+                                            </label>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <input type="radio" class="btn-check" name="electionMode" id="modeRegional" value="regional" onchange="saveSettings()">
+                                            <label class="btn btn-outline-primary w-100 py-3 rounded-4 fw-bold" for="modeRegional">
+                                                <i class="bi bi-person-fill d-block mb-1 fs-5"></i>
+                                                ส.ส. เขต เท่านั้น
+                                            </label>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <input type="radio" class="btn-check" name="electionMode" id="modeParty" value="party" onchange="saveSettings()">
+                                            <label class="btn btn-outline-primary w-100 py-3 rounded-4 fw-bold" for="modeParty">
+                                                <i class="bi bi-flag-fill d-block mb-1 fs-5"></i>
+                                                บัญชีรายชื่อ เท่านั้น
+                                            </label>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 class="fw-bold mb-0">ช่วงเวลาเปิดลงคะแนน</h3>
-                                        <p class="text-muted small mb-0">กำหนดเวลาที่ประชาชนสามารถเข้าถึงหีบเลือกตั้งดิจิทัล</p>
+                                    <div class="form-text small text-muted mt-2">
+                                        * กำหนดว่าในการโหวตผู้สมัครจะต้องเลือกอะไรบ้าง และสรุปผลจะอ้างอิงตามประเภทนี้
                                     </div>
                                 </div>
-                                
+
                                 <div class="row g-4 pt-2">
                                     <div class="col-md-6 mb-3 mb-md-0">
                                         <div class="p-3 border-2 rounded-4 bg-white border" style="min-height: 90px; border-style: solid; border-color: #e2e8f0;">
@@ -763,6 +775,11 @@
                                 <div class="col-9">
                                     <label class="form-label small fw-bold text-muted">ชื่อพรรคการเมือง</label>
                                     <input type="text" id="newPartyName" class="form-control border-2 rounded-4" placeholder="ระบุชื่อพรรค">
+                                </div>
+                                <div class="col-12 mt-3">
+                                    <label class="form-label small fw-bold text-muted">จำนวนผู้สมัครบัญชีรายชื่อที่ส่ง (Max Party List Seats)</label>
+                                    <input type="number" id="newPartyListCount" class="form-control border-2 rounded-4" placeholder="0" min="0">
+                                    <div class="form-text small text-muted">ห้ามให้จำนวน ส.ส. พึงมี เกินกว่าจำนวนคนที่พรรคส่งมาจริง</div>
                                 </div>
                             </div>
                         </div>
