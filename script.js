@@ -265,6 +265,16 @@ function createSelectionItem(type, id, name, groupName, number = null, partyName
     return label;
 }
 
+function startVoting() {
+    const check = document.getElementById('consentCheck');
+    if (!check.checked) {
+        alert("⚠️ กรุณายอมรับข้อตกลงความเป็นส่วนตัวก่อนเข้าสู่ระบบลงคะแนน");
+        return;
+    }
+    showStep(1);
+    updateProgress(1);
+}
+
 // 2. Navigation & UI Logic
 function nextStep(step) {
     const mode = (electionData.settings && electionData.settings.electionMode) ? electionData.settings.electionMode : 'both';
@@ -295,7 +305,7 @@ function nextStep(step) {
             // ไป Step 2 (Region)
             renderRegionalCandidates(region);
             showStep('region');
-            updateProgress(1);
+            updateProgress(2);
 
             // ปรับปุ่มขวามือของ Step 2
             const nextBtn = document.getElementById('btnNextFromRegion');
@@ -321,15 +331,15 @@ function nextStep(step) {
             return;
         }
         showStep(6);
-        updateProgress(2);
-        document.getElementById('backToRegionBtn').onclick = () => { showStep('region'); updateProgress(1); };
+        updateProgress(3);
+        document.getElementById('backToRegionBtn').onclick = () => { showStep('region'); updateProgress(2); };
     }
 }
 
 function prevStep(step) {
     if (step === 1) {
         showStep(1);
-        updateProgress(0);
+        updateProgress(1);
     }
 }
 
