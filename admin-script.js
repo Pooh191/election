@@ -377,6 +377,7 @@ function renderPartiesTable() {
         noVoteRow.className = "table-light opacity-75";
         noVoteRow.innerHTML = `
             <td class="ps-4 italic text-muted" colspan="2"><i class="bi bi-slash-circle me-2"></i> ไม่ประสงค์ลงคะแนน / บัตรเสีย</td>
+            <td class="text-center">-</td>
             <td class="text-center"><span class="badge bg-light text-muted border px-3">${noVotesCount.toLocaleString()}</span></td>
             <td class="text-center">-</td>
             <td class="text-center">-</td>
@@ -406,11 +407,12 @@ function renderPartiesTable() {
     totalRow.className = "table-secondary fw-bold border-top border-2";
     totalRow.innerHTML = `
         <td class="ps-4" colspan="2"><i class="bi bi-calculator me-2"></i> รวมทั้งหมด (พรรค + ไม่ประสงค์)</td>
+        <td class="text-center">-</td>
         <td class="text-center"><span class="badge bg-white text-dark border px-3">${sumPartyVotes.toLocaleString()}</span></td>
         <td class="text-center">${sumRegSeats}</td>
         <td class="text-center">${sumListSeats}</td>
         <td class="text-center"><span class="text-primary" style="font-size: 1.1rem;">${sumTotalSeats}</span></td>
-        <td></td>
+        <td class="text-end pe-4"></td>
     `;
     body.appendChild(totalRow);
 
