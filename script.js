@@ -95,6 +95,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const form = document.getElementById('electionForm');
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        const mode = (electionData.settings && electionData.settings.electionMode) ? electionData.settings.electionMode : 'both';
+        if (mode === 'both' || mode === 'party') {
+            if (!document.querySelector('input[name="political_party"]:checked')) {
+                alert("⚠️ โปรดเลือกพรรคการเมืองที่ท่านสนับสนุนก่อนส่งคะแนน");
+                return;
+            }
+        }
+
         const submitBtn = form.querySelector('.submit-btn');
         const originalText = submitBtn.innerHTML;
         
@@ -235,7 +244,7 @@ function createSelectionItem(type, id, name, groupName, number = null, partyName
     if (partyName) subInfo += `<span class="small text-muted">พรรค${partyName}</span>`;
 
     label.innerHTML = `
-        <input type="radio" name="${groupName}" value="${id}" required>
+        <input type="radio" name="${groupName}" value="${id}">
         <div class="candidate-content d-flex align-items-center justify-content-between w-100">
             <div>
                 ${number ? `<div class="fw-bold text-primary mb-1">เบอร์ ${number}</div>` : ''}
