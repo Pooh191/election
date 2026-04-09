@@ -335,6 +335,7 @@ function renderPartiesTable() {
         row.innerHTML = `
             <td class="ps-4 fw-bold text-primary">เบอร์ ${p.number || '-'}</td>
             <td class="fw-bold text-bold">${p.name}</td>
+            <td class="text-center"><span class="badge bg-light text-muted border px-3">${p.constituency_count > 0 ? p.constituency_count + ' คน' : 'ไม่ระบุ'}</span></td>
             <td class="text-center"><span class="badge bg-light text-muted border px-3">${maxListSeats > 0 ? maxListSeats + ' คน' : 'ไม่ระบุ'}</span></td>
             <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
             <td class="text-center"><span class="fw-bold">${regSeats}</span></td>
@@ -378,6 +379,7 @@ function renderPartiesTable() {
         noVoteRow.innerHTML = `
             <td class="ps-4 italic text-muted" colspan="2"><i class="bi bi-slash-circle me-2"></i> ไม่ประสงค์ลงคะแนน / บัตรเสีย</td>
             <td class="text-center">-</td>
+            <td class="text-center">-</td>
             <td class="text-center"><span class="badge bg-light text-muted border px-3">${noVotesCount.toLocaleString()}</span></td>
             <td class="text-center">-</td>
             <td class="text-center">-</td>
@@ -407,6 +409,7 @@ function renderPartiesTable() {
     totalRow.className = "table-secondary fw-bold border-top border-2";
     totalRow.innerHTML = `
         <td class="ps-4" colspan="2"><i class="bi bi-calculator me-2"></i> รวมทั้งหมด (พรรค + ไม่ประสงค์)</td>
+        <td class="text-center">-</td>
         <td class="text-center">-</td>
         <td class="text-center"><span class="badge bg-white text-dark border px-3">${sumPartyVotes.toLocaleString()}</span></td>
         <td class="text-center">${sumRegSeats}</td>
@@ -814,7 +817,8 @@ function editEntry(type, id) {
         if (p) {
             document.getElementById('newPartyNumber').value = p.number || '';
             document.getElementById('newPartyName').value = p.name || '';
-            document.getElementById('newPartyListCount').value = p.list_count || 0;
+            document.getElementById('newPartyListCount').value = p.list_count || '';
+            document.getElementById('newPartyConstituencyCount').value = p.constituency_count || '';
             document.getElementById('single-party-tab').click();
             new bootstrap.Modal('#addPartyModal').show();
         }
@@ -942,7 +946,8 @@ function openAddPartyModal() {
     editingId = null;
     document.getElementById('newPartyName').value = '';
     document.getElementById('newPartyNumber').value = '';
-    document.getElementById('newPartyListCount').value = '0';
+    document.getElementById('newPartyListCount').value = '';
+    document.getElementById('newPartyConstituencyCount').value = '';
     new bootstrap.Modal('#addPartyModal').show();
 }
 
@@ -959,16 +964,18 @@ async function saveParty() {
             const name = document.getElementById('newPartyName').value.trim();
             const number = document.getElementById('newPartyNumber').value;
             const listCount = parseInt(document.getElementById('newPartyListCount').value) || 0;
+            const constituencyCount = parseInt(document.getElementById('newPartyConstituencyCount').value) || 0;
             
             if (name) {
                 if (editingId) {
-                    await callAPI('UPDATE_PARTY', { name, number, listCount }, editingId);
+                    await callAPI('UPDATE_PARTY', { name, number, listCount, constituencyCount }, editingId);
                 } else {
-                    await callAPI('ADD_PARTY', { name, number, listCount });
+                    await callAPI('ADD_PARTY', { name, number, listCount, constituencyCount });
                 }
                 document.getElementById('newPartyName').value = '';
                 document.getElementById('newPartyNumber').value = '';
-                document.getElementById('newPartyListCount').value = '0';
+                document.getElementById('newPartyListCount').value = '';
+                document.getElementById('newPartyConstituencyCount').value = '';
                 bootstrap.Modal.getInstance(document.getElementById('addPartyModal')).hide();
             } else {
                 alert("กรุณาระบุชื่อพรรคการเมือง");
