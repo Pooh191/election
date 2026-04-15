@@ -92,6 +92,9 @@ async function reloadData() {
     try {
         const response = await fetch(SCRIPT_URL, {
             method: 'POST',
+            mode: 'cors',
+            redirect: 'follow',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'GET_DATA' })
         });
         globalData = await response.json();
@@ -140,6 +143,7 @@ async function reloadData() {
         updateUI();
     } catch (err) {
         console.error("API Fetch Error:", err);
+        alert("ไม่สามารถโหลดข้อมูลจากเซิร์ฟเวอร์ได้: " + err.message);
     }
 }
 
@@ -158,6 +162,28 @@ function updateUI() {
     // Updates Metrics (Show ALL)
     document.getElementById('totalVotes').textContent = votes.length.toLocaleString();
     document.getElementById('totalVoters').textContent = voters.length.toLocaleString();
+
+    // 📍 Voter Regional Breakdown
+    const voterRegionCounts = { 'central': 0, 'north': 0, 'south': 0, 'east': 0 };
+    voters.forEach(v => {
+        if (voterRegionCounts.hasOwnProperty(v.region)) voterRegionCounts[v.region]++;
+    });
+    
+    const voterBreakdownEl = document.getElementById('voterRegionBreakdown');
+    if (voterBreakdownEl) {
+        voterBreakdownEl.innerHTML = `
+            <div class="mt-3 pt-3 border-top">
+                <div class="row g-2">
+                    ${Object.keys(voterRegionCounts).map(r => `
+                        <div class="col-6 mb-2 text-start">
+                            <div style="font-size: 0.7rem;" class="text-muted fw-bold text-uppercase">${formatRegionName(r)}</div>
+                            <div class="fw-bold text-info">${voterRegionCounts[r].toLocaleString()} <span class="small fw-normal text-muted">คน</span></div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
 
     const rate = voters.length > 0 ? Math.round((votes.length / voters.length) * 100) : 0;
     document.getElementById('voteRate').textContent = rate + "%";
@@ -289,13 +315,19 @@ function renderPartiesTable() {
     (globalData.parties || []).forEach(p => {
         const party = partyVotes[p.name] || 0;
         const percent = total > 0 ? ((party / total) * 100).toFixed(1) : "0.0";
-        const maxListSeats = parseInt(p.list_count) || 0;
+        
+        // Robust key access
+        const p_list_count = p.list_count !== undefined ? p.list_count : (p.listCount !== undefined ? p.listCount : 0);
+        const p_constituency_count = p.constituency_count !== undefined ? p.constituency_count : (p.constituencyCount !== undefined ? p.constituencyCount : 0);
+        
+        const maxListSeats = parseInt(p_list_count) || 0;
+        const constituency_count_val = parseInt(p_constituency_count) || 0;
 
         let seats = 0;
         let originalSeats = 0;
         let isCapped = false;
 
-        if (total > 0) {
+        if (total > 0 && validTotal > 0) {
             try {
                 // ให้เลือกใช้ validTotal เป็นหลักเพื่อให้ยอดรวมพรรคได้ใกล้เคียง 11 (divisor) ที่สุด
                 let effectiveFormula = formulaStr;
@@ -308,7 +340,7 @@ function renderPartiesTable() {
                 
                 // ปัดเศษตามคำขอ (Round to nearest integer)
                 originalSeats = Math.round(rawSeats);
-                seats = originalSeats;
+                seats = isNaN(originalSeats) ? 0 : originalSeats;
 
                 // ตรวจสอบการจำกัดจำนวนบัญชีรายชื่อ (Capping)
                 if (maxListSeats > 0 && seats > maxListSeats) {
@@ -316,7 +348,7 @@ function renderPartiesTable() {
                     isCapped = true;
                 }
             } catch (e) {
-                seats = "Err!";
+                seats = 0;
             }
         }
 
@@ -335,13 +367,13 @@ function renderPartiesTable() {
         row.innerHTML = `
             <td class="ps-4 fw-bold text-primary">เบอร์ ${p.number || '-'}</td>
             <td class="fw-bold text-bold">${p.name}</td>
-            <td class="text-center"><span class="badge bg-light text-muted border px-3">${p.constituency_count > 0 ? p.constituency_count + ' คน' : 'ไม่ระบุ'}</span></td>
+            <td class="text-center"><span class="badge bg-light text-muted border px-3">${constituency_count_val > 0 ? constituency_count_val + ' คน' : 'ไม่ระบุ'}</span></td>
             <td class="text-center"><span class="badge bg-light text-muted border px-3">${maxListSeats > 0 ? maxListSeats + ' คน' : 'ไม่ระบุ'}</span></td>
             <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
             <td class="text-center"><span class="fw-bold">${regSeats}</span></td>
             <td class="text-center">
                 <span class="fw-bold ${isCapped ? 'text-danger' : 'text-muted'}">${seats}</span>
-                ${isCapped ? `<i class="bi bi-exclamation-triangle-fill text-danger ms-1" title="จำกัดแค่ ${maxListSeats} ตามที่ส่งจริง (จากเดิม ${originalSeats})"></i>` : ''}
+                ${isCapped ? `<i class="bi bi-exclamation-triangle-fill text-danger ms-1" title="จำกัดแค่ ${p_list_count} ตามที่ส่งจริง (จากเดิม ${originalSeats})"></i>` : ''}
             </td>
             <td class="text-center"><span class="fw-bold text-primary" style="font-size: 1.1rem;">${totalSeats}</span></td>
             <td class="text-end pe-4">
@@ -675,7 +707,7 @@ async function callAPI(action, data = {}, id = null) {
         }
     } catch (e) {
         console.error("API Call Error:", e);
-        alert("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
+        alert("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: " + e.message);
         reloadData();
     }
     return false;
@@ -688,6 +720,14 @@ function handleLocalStateUpdate(action, data, id) {
         if (globalData[type]) {
             globalData[type].push({ ...data, id });
         }
+    } else if (action.startsWith('UPDATE_')) {
+        const type = action.replace('UPDATE_', '').toLowerCase() + 's';
+        if (globalData[type]) {
+            const index = globalData[type].findIndex(item => item.id === id);
+            if (index !== -1) {
+                globalData[type][index] = { ...globalData[type][index], ...data };
+            }
+        }
     } else if (action.startsWith('DELETE_')) {
         const type = action.replace('DELETE_', '').toLowerCase() + 's';
         if (globalData[type]) {
@@ -697,7 +737,6 @@ function handleLocalStateUpdate(action, data, id) {
         data.names.forEach((name, i) => {
             globalData.voters.push({ name, region: data.region, id: "TEMP-" + i });
         });
-        // สำหรับ Batch แนะนำให้ reloadData ทีหลังเพื่อเอา ID จริง
         setTimeout(reloadData, 1500);
     } else if (action === 'RESET_VOTES') {
         globalData.votes = [];
@@ -705,7 +744,7 @@ function handleLocalStateUpdate(action, data, id) {
         globalData.settings = { ...globalData.settings, ...data };
     }
 
-    updateUI(); // วาดตารางใหม่ทันทีจากข้อมูลในหน่วยความจำ
+    updateUI(); 
 }
 
 // --- District Management Logic ---
@@ -963,14 +1002,14 @@ async function saveParty() {
         if (isSingle) {
             const name = document.getElementById('newPartyName').value.trim();
             const number = document.getElementById('newPartyNumber').value;
-            const listCount = parseInt(document.getElementById('newPartyListCount').value) || 0;
-            const constituencyCount = parseInt(document.getElementById('newPartyConstituencyCount').value) || 0;
+            const list_count = parseInt(document.getElementById('newPartyListCount').value) || 0;
+            const constituency_count = parseInt(document.getElementById('newPartyConstituencyCount').value) || 0;
             
             if (name) {
                 if (editingId) {
-                    await callAPI('UPDATE_PARTY', { name, number, listCount, constituencyCount }, editingId);
+                    await callAPI('UPDATE_PARTY', { name, number, list_count, constituency_count }, editingId);
                 } else {
-                    await callAPI('ADD_PARTY', { name, number, listCount, constituencyCount });
+                    await callAPI('ADD_PARTY', { name, number, list_count, constituency_count });
                 }
                 document.getElementById('newPartyName').value = '';
                 document.getElementById('newPartyNumber').value = '';
