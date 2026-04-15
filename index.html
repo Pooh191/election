@@ -200,6 +200,30 @@
         </div>
     </footer>
 
+    <!-- Voting Progress Modal -->
+    <div class="modal fade" id="votingModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-5 shadow-lg overflow-hidden">
+                <div class="modal-body p-5 text-center">
+                    <div class="mb-4">
+                        <div class="spinner-vote shadow-sm">
+                            <i class="bi bi-box-fill text-primary"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-2">กำลังส่งผลการเลือกตั้ง...</h3>
+                    <p class="text-muted mb-0">โปรดรอสักครู่ ระบบกำลังนำส่งคะแนนของท่านเข้าสู่ฐานข้อมูลส่วนกลางอย่างปลอดภัย</p>
+                    
+                    <div class="mt-4 pt-2">
+                        <div class="progress rounded-pill bg-light" style="height: 8px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                 role="progressbar" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
