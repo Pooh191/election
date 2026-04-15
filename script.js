@@ -110,14 +110,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึกคะแนน...';
         
+        // Show Beauty Modal
+        const votingModal = new bootstrap.Modal(document.getElementById('votingModal'));
+        votingModal.show();
+        
         const success = await sendVoteData();
-        if (success) {
-            showSuccess();
-            updateProgress(4); // ตัวแทนของขั้นตอนสำเร็จ
-        } else {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        }
+        
+        // Wait a bit for smooth UI
+        setTimeout(() => {
+            votingModal.hide();
+            if (success) {
+                showSuccess();
+                updateProgress(4);
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }, 1200);
     });
 });
 
@@ -141,6 +150,9 @@ async function fetchElectionData() {
     try {
         const response = await fetch(SCRIPT_URL, {
             method: 'POST',
+            mode: 'cors',
+            redirect: 'follow',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'GET_DATA' })
         });
         electionData = await response.json();
@@ -396,6 +408,9 @@ async function sendVoteData() {
     try {
         const response = await fetch(SCRIPT_URL, {
             method: 'POST',
+            mode: 'cors',
+            redirect: 'follow',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
         });
         const result = await response.json();
