@@ -16,7 +16,8 @@ let timerInterval;
 
 document.addEventListener('DOMContentLoaded', async () => {
     // โหลดข้อมูลเริ่มต้น
-    await fetchElectionData();
+    const loadSuccess = await fetchElectionData();
+    if (!loadSuccess) return; // ถ้าดึงข้อมูลพัง ให้หยุดการทำงานทั้งหมด
     
     // ⏱️ Election Status Real-time Monitoring
     if (electionData.settings) {
@@ -155,11 +156,45 @@ async function fetchElectionData() {
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'GET_DATA' })
         });
-        electionData = await response.json();
+        const result = await response.json();
+        
+        // Validation data structure
+        if (result.result === "error") {
+            throw new Error(result.message || "API Data Error");
+        }
+        
+        // การันตีว่าตัวแปรจะไม่ undefined ถึงแม้ว่า sheet จะว่าง
+        electionData = {
+            voters: result.voters || [],
+            candidates: result.candidates || [],
+            parties: result.parties || [],
+            votes: result.votes || [],
+            settings: result.settings || {}
+        };
+        return true;
     } catch (err) {
         console.error("Fetch error:", err);
-        showToast("ไม่สามารถเชื่อมต่อฐานข้อมูลได้", "danger");
+        showRetryUI("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ โปรดตรวจสอบอินเทอร์เน็ตหรือรีเฟรชหน้าเว็บใหม่");
+        return false;
     }
+}
+
+function showRetryUI(message) {
+    const loader = document.getElementById('globalLoader');
+    loader.innerHTML = `
+        <div class="text-center p-5 animate__animated animate__fadeIn">
+            <div class="bg-white p-5 rounded-5 shadow-lg border border-danger border-opacity-25">
+                <i class="bi bi-wifi-off text-danger display-1 mb-4"></i>
+                <h3 class="fw-bold text-dark">การเชื่อมต่อขัดข้อง</h3>
+                <p class="text-muted mt-3 mb-4">${message}</p>
+                <button class="btn btn-outline-danger px-4 py-2 rounded-pill fw-bold" onclick="location.reload()">
+                    <i class="bi bi-arrow-repeat me-2"></i> ลองโหลดข้อมูลใหม่
+                </button>
+            </div>
+        </div>
+    `;
+    loader.classList.remove('d-none');
+    document.getElementById('electionForm').classList.add('d-none');
 }
 
 function initVoters() {
@@ -199,8 +234,8 @@ function renderRegionalCandidates(region) {
     const container = document.getElementById('candidates-container');
     const title = document.querySelector('.region-title');
     
-    // แปลชื่อภาค
-    const regionNames = { 'east': 'ภาคตะวันออก', 'south': 'ภาคใต้', 'north': 'ภาคเหนือ', 'central': 'ภาคกลาง' };
+    // แปลชื่อเขต
+    const regionNames = { 'reg1': 'เขต 1 (เชียงใหม่, เชียงราย, ลำพูน)', 'reg2': 'เขต 2 (ขอนแก่น, อุดรธานี)', 'reg3': 'เขต 3 (กทม., อยุธยา, นครราชสีมา)', 'reg4': 'เขต 4 (ภูเก็ต, นครศรีฯ, นนทบุรี)', 'reg5': 'เขต 5 (สงขลา)' };
     title.textContent = `เลือก ส.ส. ${regionNames[region] || region}`;
     
     // แสดงสถานะก่อนโหลดข้อมูลจริง
