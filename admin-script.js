@@ -52,35 +52,45 @@ window.onload = () => {
         reloadData();
     }
 
-    // 🔀 Tab Sychronizer and Fix for Mobile Tabs
+    // 🔀 Tab Sychronizer and Fix for Mobile Tabs (Improved)
     document.querySelectorAll('[data-bs-toggle="pill"]').forEach(btn => {
         btn.addEventListener('show.bs.tab', function (e) {
             const target = e.target.getAttribute('data-bs-target');
-            // Sync all identical buttons (Sidebar vs Mobile)
-            document.querySelectorAll(`[data-bs-target="${target}"]`).forEach(el => {
-                if (el !== e.target) el.classList.add('active');
-            });
-            // Untoggle others
-            const others = document.querySelectorAll(`[data-bs-toggle="pill"]:not([data-bs-target="${target}"])`);
-            others.forEach(el => el.classList.remove('active'));
+            const parent = e.target.closest('.sidebar, .mobile-nav, .modal-body, .tab-content');
+            
+            // 1. Sidebar/Mobile Nav Synchronization
+            if (e.target.closest('.sidebar, .mobile-nav')) {
+                // Sync all identical buttons (Sidebar vs Mobile)
+                document.querySelectorAll(`.sidebar [data-bs-target="${target}"], .mobile-nav [data-bs-target="${target}"]`).forEach(el => {
+                    el.classList.add('active');
+                });
+                
+                // Untoggle other sidebar/mobile buttons ONLY
+                document.querySelectorAll(`.sidebar [data-bs-toggle="pill"]:not([data-bs-target="${target}"]), .mobile-nav [data-bs-toggle="pill"]:not([data-bs-target="${target}"])`).forEach(el => {
+                    el.classList.remove('active');
+                });
+            } 
+            // 2. Local Tab Groups (like inside Modals)
+            else if (parent) {
+                parent.querySelectorAll(`[data-bs-toggle="pill"]`).forEach(el => {
+                    if (el.getAttribute('data-bs-target') === target) el.classList.add('active');
+                    else el.classList.remove('active');
+                });
+            }
         });
 
-        // Manual Trigger for Mobile devices that might miss Bootstrap event
+        // Manual Trigger for Mobile/Static Panes
         btn.onclick = function (e) {
             const targetId = this.getAttribute('data-bs-target').substring(1);
             const pane = document.getElementById(targetId);
             if (pane) {
-                // Remove active from all panes
-                document.querySelectorAll('.tab-pane').forEach(p => {
-                    p.classList.remove('show', 'active');
-                });
-                // Add active to target pane
+                const tabContent = pane.closest('.tab-content');
+                if (tabContent) {
+                    Array.from(tabContent.children).forEach(p => {
+                        if (p.classList.contains('tab-pane')) p.classList.remove('show', 'active');
+                    });
+                }
                 pane.classList.add('show', 'active');
-
-                // Sync UI Buttons
-                const allTriggers = document.querySelectorAll('[data-bs-toggle="pill"]');
-                allTriggers.forEach(t => t.classList.remove('active'));
-                document.querySelectorAll(`[data-bs-target="#${targetId}"]`).forEach(t => t.classList.add('active'));
             }
         };
     });
@@ -97,7 +107,20 @@ async function reloadData() {
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'GET_DATA' })
         });
-        globalData = await response.json();
+        const result = await response.json();
+        
+        if (result.result === "error") {
+            throw new Error(result.message || "API Data Error");
+        }
+        
+        // รับประกันว่าจะมีโครงสร้าง Array ตลอดเวลา ไม่ว่าเซิร์ฟเวอร์จะตอบอะไรมา
+        globalData = {
+            voters: result.voters || [],
+            candidates: result.candidates || [],
+            parties: result.parties || [],
+            votes: result.votes || [],
+            settings: result.settings || {}
+        };
 
         // Populate Settings UI
         if (globalData.settings) {
@@ -143,7 +166,13 @@ async function reloadData() {
         updateUI();
     } catch (err) {
         console.error("API Fetch Error:", err);
-        alert("ไม่สามารถโหลดข้อมูลจากเซิร์ฟเวอร์ได้: " + err.message);
+        const errorHTML = `<tr><td colspan="9" class="text-center py-5 text-danger"><div class="bg-danger bg-opacity-10 rounded-4 p-4 d-inline-block border border-danger border-opacity-25 shadow-sm"><i class="bi bi-wifi-off fs-1 d-block mb-3"></i> <b class="fs-5">โหลดข้อมูลล้มเหลว</b><p class="small mt-2 mb-4" style="color: #64748b;">${err.message}</p><button class="btn btn-outline-danger mt-2 rounded-pill px-4 fw-bold" onclick="reloadData()"><i class="bi bi-arrow-repeat me-2"></i> ลองเชื่อมต่ออีกครั้ง</button></div></td></tr>`;
+        
+        const bodies = ['voterTableBody', 'candidateTableBody', 'partyTableBody', 'overviewPartyBody'];
+        bodies.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = errorHTML;
+        });
     }
 }
 
@@ -164,7 +193,7 @@ function updateUI() {
     document.getElementById('totalVoters').textContent = voters.length.toLocaleString();
 
     // 📍 Voter Regional Breakdown
-    const voterRegionCounts = { 'central': 0, 'north': 0, 'south': 0, 'east': 0 };
+    const voterRegionCounts = { 'reg1': 0, 'reg2': 0, 'reg3': 0, 'reg4': 0, 'reg5': 0 };
     voters.forEach(v => {
         if (voterRegionCounts.hasOwnProperty(v.region)) voterRegionCounts[v.region]++;
     });
@@ -199,7 +228,7 @@ function updateUI() {
 
     // Chart Data Preparation - Show ALL regions
     const partyCounts = {};
-    const regionCounts = { 'east': 0, 'south': 0, 'north': 0, 'central': 0 };
+    const regionCounts = { 'reg1': 0, 'reg2': 0, 'reg3': 0, 'reg4': 0, 'reg5': 0 };
     votes.forEach(v => {
         partyCounts[v.party] = (partyCounts[v.party] || 0) + 1;
         if (regionCounts.hasOwnProperty(v.region)) regionCounts[v.region]++;
@@ -221,11 +250,20 @@ let editingId = null;
 function renderVotersTable() {
     const body = document.getElementById('voterTableBody');
     body.innerHTML = '';
-
-    // Create a Set for O(1) loop up
+    
+    const searchTerm = (document.getElementById('voterSearch')?.value || '').toLowerCase().trim();
     const votedNames = new Set((globalData.votes || []).map(v => v.voter));
 
-    (globalData.voters || []).slice().reverse().forEach(v => {
+    let voters = (globalData.voters || []).slice().reverse();
+    if (searchTerm) {
+        voters = voters.filter(v => 
+            v.name.toLowerCase().includes(searchTerm) || 
+            v.id.toString().toLowerCase().includes(searchTerm) ||
+            formatRegionName(v.region).toLowerCase().includes(searchTerm)
+        );
+    }
+
+    voters.forEach(v => {
         const hasVoted = votedNames.has(v.name);
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -247,10 +285,20 @@ function renderVotersTable() {
 function renderCandidatesTable() {
     const body = document.getElementById('candidateTableBody');
     body.innerHTML = '';
+    
+    const searchTerm = (document.getElementById('candidateSearch')?.value || '').toLowerCase().trim();
 
-    (globalData.candidates || []).forEach(c => {
-        // ดึงค่ามาพักไว้ก่อนเพื่อความชัวร์ (เผื่อกรณีคอลัมน์ใน Sheet สลับกัน)
-        // เราจะอ้างอิงจากคีย์ที่ดึงมาจาก Sheet Header โดยตรง
+    let candidates = (globalData.candidates || []);
+    if (searchTerm) {
+        candidates = candidates.filter(c => 
+            (c.name || '').toLowerCase().includes(searchTerm) || 
+            (c.party || '').toLowerCase().includes(searchTerm) ||
+            (c.number || '').toString().includes(searchTerm) ||
+            formatRegionName(c.region).toLowerCase().includes(searchTerm)
+        );
+    }
+
+    candidates.forEach(c => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="ps-4 fw-bold text-primary">เบอร์ ${c.number || '-'}</td>
@@ -289,7 +337,7 @@ function renderPartiesTable() {
 
     // Calculate Regional Winners (ส.ส. เขต)
     const regionWinnerSeats = {}; // party name -> seat count
-    const regions = ['central', 'north', 'south', 'east'];
+    const regions = ['reg1', 'reg2', 'reg3', 'reg4', 'reg5'];
     const candidates = globalData.candidates || [];
 
     regions.forEach(r => {
@@ -468,6 +516,7 @@ function renderPartiesTable() {
 
 
 
+    // suggested fix for display issue
     const displayDivisor = document.getElementById('displayDivisor');
     if (displayDivisor) displayDivisor.textContent = divisor;
     
@@ -609,7 +658,7 @@ function renderFullReport() {
 
     const winnerTable = document.getElementById('reportRegionalWinners');
     winnerTable.innerHTML = '';
-    ['central', 'north', 'south', 'east'].forEach(r => {
+    ['reg1', 'reg2', 'reg3', 'reg4', 'reg5'].forEach(r => {
         const cands = regionWinners[r] || {};
         const topCand = Object.keys(cands).reduce((a, b) => cands[a] > cands[b] ? a : b, null);
         const winCount = topCand ? cands[topCand] : 0;
@@ -643,7 +692,6 @@ async function saveSettings() {
         btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...`;
 
         await callAPI('UPDATE_SETTINGS', { startTime, endTime, electionMode });
-        await reloadData(); // Sync with server for certainty
         alert("บันทึกการตั้งค่าเวลาเรียบร้อยแล้ว");
     } catch (error) {
         alert("เกิดข้อผิดพลาด: " + error.message);
@@ -715,23 +763,25 @@ async function callAPI(action, data = {}, id = null) {
 
 // ฟังก์ชันช่่วยอัปเดตข้อมูลในเครื่องทันทีเพื่อให้รู้สึกเร็ว (Optimistic UI)
 function handleLocalStateUpdate(action, data, id) {
+    let type = "";
+    if (action.includes('_VOTER')) type = 'voters';
+    else if (action.includes('_CANDIDATE')) type = 'candidates';
+    else if (action.includes('_PARTY')) type = 'parties';
+
     if (action.startsWith('ADD_')) {
-        const type = action.replace('ADD_', '').toLowerCase() + 's';
         if (globalData[type]) {
             globalData[type].push({ ...data, id });
         }
     } else if (action.startsWith('UPDATE_')) {
-        const type = action.replace('UPDATE_', '').toLowerCase() + 's';
         if (globalData[type]) {
-            const index = globalData[type].findIndex(item => item.id === id);
+            const index = globalData[type].findIndex(item => String(item.id) === String(id));
             if (index !== -1) {
                 globalData[type][index] = { ...globalData[type][index], ...data };
             }
         }
     } else if (action.startsWith('DELETE_')) {
-        const type = action.replace('DELETE_', '').toLowerCase() + 's';
         if (globalData[type]) {
-            globalData[type] = globalData[type].filter(item => item.id !== id);
+            globalData[type] = globalData[type].filter(item => String(item.id) !== String(id));
         }
     } else if (action === 'BATCH_ADD_VOTERS') {
         data.names.forEach((name, i) => {
@@ -753,10 +803,11 @@ function renderRegionStatusTable() {
     if (!body) return;
 
     const regions = [
-        { id: 'central', name: 'ภาคกลาง' },
-        { id: 'north', name: 'ภาคเหนือ' },
-        { id: 'south', name: 'ภาคใต้' },
-        { id: 'east', name: 'ภาคตะวันออก' }
+        { id: 'reg1', name: 'เขต 1 (เชียงใหม่, เชียงราย, ลำพูน)' },
+        { id: 'reg2', name: 'เขต 2 (ขอนแก่น, อุดรธานี)' },
+        { id: 'reg3', name: 'เขต 3 (กทม., อยุธยา, นครราชสีมา)' },
+        { id: 'reg4', name: 'เขต 4 (ภูเก็ต, นครศรีฯ, นนทบุรี)' },
+        { id: 'reg5', name: 'เขต 5 (สงขลา)' }
     ];
 
     const openStatus = globalData.settings.region_open_status ? JSON.parse(globalData.settings.region_open_status) : {};
@@ -824,42 +875,76 @@ async function deleteRegionData(regionId) {
     } catch (e) {
         alert("เกิดข้อผิดพลาด: " + e.message);
     } finally {
-        reloadData(); // Full sync to be safe
+        // No need to reload, local state updated
     }
 }
 
 
 // Modals & Management
 function editEntry(type, id) {
+    if (!id) return;
     editingId = id;
+    const searchId = String(id).trim();
+    console.log(`Editing ${type} with ID: ${searchId}`);
+    
     if (type === 'VOTER') {
-        const v = globalData.voters.find(x => x.id === id);
+        const v = globalData.voters.find(x => String(x.id).trim() === searchId);
         if (v) {
             document.getElementById('newVoterName').value = v.name || '';
             document.getElementById('newVoterRegion').value = v.region || 'central';
-            document.getElementById('single-tab').click();
-            new bootstrap.Modal('#addVoterModal').show();
+            
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('addVoterModal'));
+            modal.show();
+            
+            // Switch to single tab after showing modal to ensure element is accessible
+            setTimeout(() => {
+                const singleTab = document.getElementById('single-tab');
+                if (singleTab) bootstrap.Tab.getOrCreateInstance(singleTab).show();
+            }, 150);
         }
     } else if (type === 'CANDIDATE') {
-        const c = globalData.candidates.find(x => x.id === id);
+        const c = globalData.candidates.find(x => String(x.id).trim() === searchId);
         if (c) {
             document.getElementById('newCandidateName').value = c.name || '';
             document.getElementById('newCandidateNumber').value = c.number || '';
             document.getElementById('newCandidateRegion').value = c.region || 'central';
             updatePartyDropdowns();
             document.getElementById('newCandidateParty').value = c.party || '';
-            document.getElementById('single-cand-tab').click();
-            new bootstrap.Modal('#addCandidateModal').show();
+            
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('addCandidateModal'));
+            modal.show();
+
+            setTimeout(() => {
+                const singleTab = document.getElementById('single-cand-tab');
+                if (singleTab) bootstrap.Tab.getOrCreateInstance(singleTab).show();
+            }, 150);
         }
     } else if (type === 'PARTY') {
-        const p = globalData.parties.find(x => x.id === id);
+        const p = globalData.parties.find(x => String(x.id).trim() === searchId);
         if (p) {
-            document.getElementById('newPartyNumber').value = p.number || '';
-            document.getElementById('newPartyName').value = p.name || '';
-            document.getElementById('newPartyListCount').value = p.list_count || '';
-            document.getElementById('newPartyConstituencyCount').value = p.constituency_count || '';
-            document.getElementById('single-party-tab').click();
-            new bootstrap.Modal('#addPartyModal').show();
+            const listCount = p.list_count !== undefined ? p.list_count : (p.listCount !== undefined ? p.listCount : 0);
+            const constCount = p.constituency_count !== undefined ? p.constituency_count : (p.constituencyCount !== undefined ? p.constituencyCount : 0);
+
+            document.getElementById('newPartyNumber').value = String(p.number || '').trim();
+            document.getElementById('newPartyName').value = String(p.name || '').trim();
+            document.getElementById('newPartyListCount').value = listCount;
+            document.getElementById('newPartyConstituencyCount').value = constCount;
+            
+            const modalEl = document.getElementById('addPartyModal');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+
+            // Use a slightly longer delay and more robust tab switching
+            setTimeout(() => {
+                const singleTab = document.getElementById('single-party-tab');
+                if (singleTab) {
+                    const tab = new bootstrap.Tab(singleTab);
+                    tab.show();
+                }
+            }, 200);
+        } else {
+            console.error("Party not found for ID:", searchId, globalData.parties);
+            alert("ไม่พบข้อมูลพรรคการเมือง ID: " + id);
         }
     }
 }
@@ -1048,10 +1133,7 @@ async function deleteEntry(type, id) {
     if (confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?`)) {
         console.log(`Attempting to delete ${type} with ID:`, id);
         const success = await callAPI(`DELETE_${type}`, {}, id);
-        if (success) {
-            // โหลดข้อมูลใหม่หลังจากลบสำเร็จ
-            await reloadData();
-        }
+        // callAPI already handles local state update and UI refresh
     }
 }
 
@@ -1063,7 +1145,13 @@ async function confirmResetVotes() {
 
 // 5. Utils & Charts
 function formatRegionName(region) {
-    const names = { 'east': 'ตะวันออก', 'south': 'ใต้', 'north': 'เหนือ', 'central': 'กลาง' };
+    const names = { 
+        'reg1': 'เขต 1 (เชียงใหม่, เชียงราย, ลำพูน)', 
+        'reg2': 'เขต 2 (ขอนแก่น, อุดรธานี)', 
+        'reg3': 'เขต 3 (กทม., อยุธยา, นครราชสีมา)', 
+        'reg4': 'เขต 4 (ภูเก็ต, นครศรีฯ, นนทบุรี)',
+        'reg5': 'เขต 5 (สงขลา)'
+    };
     return names[region] || region;
 }
 
