@@ -402,7 +402,7 @@
                                     <div class="mb-2 text-white-75 small">สูตรปัจจุบัน:</div>
                                     <div class="font-monospace fw-bold mb-3"
                                         style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.15); padding: 12px; border-radius: 12px; font-size: 0.9rem; overflow-x: auto; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                        (party * <span id="displayDivisor">11</span>) / total
+                                        <input type="text" id="seatFormula" class="form-control border-0 text-white shadow-none p-0 bg-transparent font-monospace" value="(party * divisor) / total" oninput="updateUI()">
                                     </div>
                                     <div class="input-group input-group-sm mb-3"
                                         style="border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2);">
@@ -460,8 +460,14 @@
 
                 <!-- 👥 Voters Management -->
                 <div class="tab-pane fade" id="voters">
-                    <div class="d-flex justify-content-between align-items-center mb-5">
-                        <h2 class="fw-bold">จัดการผู้มีสิทธิ</h2>
+                    <div class="d-flex justify-content-between align-items-center mb-5 flex-wrap gap-3">
+                        <h2 class="fw-bold mb-0">จัดการผู้มีสิทธิ</h2>
+                        <div class="d-flex gap-2 flex-grow-1 max-w-300">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-2 border-end-0 rounded-start-4"><i class="bi bi-search"></i></span>
+                                <input type="text" id="voterSearch" class="form-control border-2 border-start-0 rounded-end-4 shadow-none" placeholder="ค้นหารายชื่อ..." oninput="renderVotersTable()">
+                            </div>
+                        </div>
                         <button class="btn btn-primary-custom" onclick="openAddVoterModal()">
                             <i class="bi bi-plus-lg me-2"></i> เพิ่มรายชื่อ
                         </button>
@@ -484,8 +490,14 @@
 
                 <!-- 🎖 Candidates Management -->
                 <div class="tab-pane fade" id="candidates">
-                    <div class="d-flex justify-content-between align-items-center mb-5">
-                        <h2 class="fw-bold">จัดการผู้สมัคร ส.ส.</h2>
+                    <div class="d-flex justify-content-between align-items-center mb-5 flex-wrap gap-3">
+                        <h2 class="fw-bold mb-0">จัดการผู้สมัคร ส.ส.</h2>
+                        <div class="d-flex gap-2 flex-grow-1 max-w-300">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-2 border-end-0 rounded-start-4"><i class="bi bi-search"></i></span>
+                                <input type="text" id="candidateSearch" class="form-control border-2 border-start-0 rounded-end-4 shadow-none" placeholder="ค้นหาชื่อ/พรรค..." oninput="renderCandidatesTable()">
+                            </div>
+                        </div>
                         <button class="btn btn-primary-custom" onclick="openAddCandidateModal()">
                             <i class="bi bi-person-plus me-2"></i> เพิ่มผู้สมัคร
                         </button>
@@ -839,12 +851,13 @@
                                 id="bulk-tab" data-bs-toggle="pill" data-bs-target="#bulk-voters"
                                 type="button">แบบเพิ่มเยอะๆ</button></li>
                     </ul>
-                    <div class="mb-4"><label class="form-label small fw-bold text-muted">ภูมิภาค</label><select
+                    <div class="mb-4"><label class="form-label small fw-bold text-muted">เขตเลือกตั้ง (จังหวัด)</label><select
                             id="newVoterRegion" class="form-select form-select-lg border-2 rounded-4 shadow-none">
-                            <option value="east">ภาคตะวันออก</option>
-                            <option value="south">ภาคใต้</option>
-                            <option value="north">ภาคเหนือ</option>
-                            <option value="central">ภาคกลาง</option>
+                            <option value="reg1">เขตเลือกตั้งที่ 1 (เชียงใหม่, เชียงราย, ลำพูน)</option>
+                            <option value="reg2">เขตเลือกตั้งที่ 2 (ขอนแก่น, อุดรธานี)</option>
+                            <option value="reg3">เขตเลือกตั้งที่ 3 (กทม., อยุธยา, นครราชสีมา)</option>
+                            <option value="reg4">เขตเลือกตั้งที่ 4 (ภูเก็ต, นครศรีฯ, นนทบุรี)</option>
+                            <option value="reg5">เขตเลือกตั้งที่ 5 (สงขลา)</option>
                         </select></div>
                     <div class="tab-content">
                         <div class="tab-pane fade show active" id="single-voter">
@@ -887,12 +900,13 @@
 
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold text-muted">ภูมิภาคเขตเลือกตั้ง</label>
+                            <label class="form-label small fw-bold text-muted">เขตเลือกตั้งที่ลงสมัคร</label>
                             <select id="newCandidateRegion" class="form-select border-2 rounded-4 shadow-none">
-                                <option value="east">ภาคตะวันออก</option>
-                                <option value="south">ภาคใต้</option>
-                                <option value="north">ภาคเหนือ</option>
-                                <option value="central">ภาคกลาง</option>
+                                <option value="reg1">เขตเลือกตั้งที่ 1 (เชียงใหม่, เชียงราย, ลำพูน)</option>
+                                <option value="reg2">เขตเลือกตั้งที่ 2 (ขอนแก่น, อุดรธานี)</option>
+                                <option value="reg3">เขตเลือกตั้งที่ 3 (กทม., อยุธยา, นครราชสีมา)</option>
+                                <option value="reg4">เขตเลือกตั้งที่ 4 (ภูเก็ต, นครศรีฯ, นนทบุรี)</option>
+                                <option value="reg5">เขตเลือกตั้งที่ 5 (สงขลา)</option>
                             </select>
                         </div>
                         <div class="col-md-6">
