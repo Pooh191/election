@@ -150,28 +150,47 @@ function handleUpdateSettings(ss, data) {
 // --- แคชชิ่งและดึงข้อมูล ---
 function getSheetDataCached(ss, sheetName) {
   const cache = CacheService.getScriptCache();
-  const cached = cache.get("data_" + sheetName);
+  const cached = cache.get("data_v2_" + sheetName);
   if (cached) return JSON.parse(cached);
   const sheet = ss.getSheetByName(sheetName);
   const data = getSheetData(sheet);
-  try { cache.put("data_" + sheetName, JSON.stringify(data), CACHE_TTL); } catch (e) {}
+  try { cache.put("data_v2_" + sheetName, JSON.stringify(data), CACHE_TTL); } catch (e) {}
   return data;
 }
 
 function clearDataCache() {
   const cache = CacheService.getScriptCache();
-  cache.removeAll(["data_Voters", "data_Candidates", "data_Parties"]);
+  cache.removeAll(["data_v2_Voters", "data_v2_Candidates", "data_v2_Parties"]);
 }
 
 function getSheetData(sheet) {
   if (!sheet) return [];
   const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
-  const values = sheet.getDataRange().getValues();
-  const headers = values.shift().map(h => h.toString().toLowerCase().trim());
-  return values.map(row => {
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 1 || lastCol < 1) return [];
+  
+  let values = sheet.getDataRange().getValues();
+  let headers = values.shift().map(h => h.toString().toLowerCase().trim());
+  
+  // Auto-fix headers for Parties sheet if missing (This fixes the "Not Specified" bug upon refresh)
+  if (sheet.getName() === SHEET_NAMES.PARTIES) {
+      if (!headers.includes("constituency_count") || !headers.includes("list_count")) {
+          const newHeaders = ["id", "number", "name", "constituency_count", "list_count"];
+          sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+          headers = newHeaders;
+          
+          if (lastRow >= 2) {
+              values = sheet.getRange(2, 1, lastRow - 1, newHeaders.length).getValues();
+          } else {
+              values = [];
+          }
+      }
+  }
+
+  return values.map((row, idx) => {
     let obj = {};
-    headers.forEach((h, i) => { obj[h] = row[i]; });
+    headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ""; });
+    if (!obj.id) obj.id = "_ROW_" + (idx + 2); // Fallback ID for manually entered rows
     return obj;
   });
 }
@@ -190,7 +209,7 @@ function handleAddEntry(ss, sheetName, data) {
   }
   if (sheetName === SHEET_NAMES.VOTERS) sheet.appendRow([id, cleanName, data.region]);
   else if (sheetName === SHEET_NAMES.CANDIDATES) sheet.appendRow([id, data.number, cleanName, data.region, data.party]);
-  else if (sheetName === SHEET_NAMES.PARTIES) sheet.appendRow([id, data.number || "-", cleanName, data.listCount || 0]);
+  else if (sheetName === SHEET_NAMES.PARTIES) sheet.appendRow([id, data.number || "-", cleanName, data.constituency_count || 0, data.list_count || 0]);
   return createJSONResponse({ result: "success", id: id });
 }
 
@@ -210,8 +229,8 @@ function handleBatchAdd(ss, sheetName, data) {
     const clean = name.trim();
     if (clean && !existingNames.has(clean.toLowerCase())) {
         const id = "ID-" + (baseTime + i);
-        if (sheetName === SHEET_NAMES.PARTIES) rows.push([id, "-", clean, 0]);
-        else if (sheetName === SHEET_NAMES.CANDIDATES) rows.push([id, "-", clean, data.region, data.party || ""]);
+        if (sheetName === SHEET_NAMES.PARTIES) rows.push([id, "", clean, 0, 0]);
+        else if (sheetName === SHEET_NAMES.CANDIDATES) rows.push([id, "", clean, data.region, data.party || ""]);
         else rows.push([id, clean, data.region]);
         existingNames.add(clean.toLowerCase());
     }
@@ -222,21 +241,46 @@ function handleBatchAdd(ss, sheetName, data) {
 
 function handleUpdateEntry(ss, sheetName, id, data) {
   const sheet = ss.getSheetByName(sheetName);
-  const ids = sheet.getRange(1, 1, sheet.getLastRow(), 1).getValues().flat();
-  const rowIdx = ids.indexOf(id.toString());
-  if (rowIdx === -1) throw new Error("Data Not Found");
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 1) throw new Error("Sheet is empty");
+  
+  let rowIdx = -1;
+  const idStr = String(id).trim();
+  if (idStr.startsWith("_ROW_")) {
+    rowIdx = parseInt(idStr.replace("_ROW_", "")) - 1;
+  } else {
+    const ids = sheet.getRange(1, 1, lastRow, 1).getValues().flat();
+    rowIdx = ids.findIndex(item => String(item).trim() === idStr);
+  }
+  
+  if (rowIdx === -1 || rowIdx >= lastRow) throw new Error("Data Not Found (ID: " + id + ")");
   const row = rowIdx + 1;
+  
+  if (idStr.startsWith("_ROW_")) {
+     sheet.getRange(row, 1).setValue("ID-" + Date.now()); // Auto-fill missing ID
+  }
+  
   if (sheetName === SHEET_NAMES.VOTERS) sheet.getRange(row, 2, 1, 2).setValues([[data.name, data.region]]);
   else if (sheetName === SHEET_NAMES.CANDIDATES) sheet.getRange(row, 2, 1, 4).setValues([[data.number, data.name, data.region, data.party]]);
-  else if (sheetName === SHEET_NAMES.PARTIES) sheet.getRange(row, 2, 1, 3).setValues([[data.number, data.name, data.listCount || 0]]);
+  else if (sheetName === SHEET_NAMES.PARTIES) sheet.getRange(row, 2, 1, 4).setValues([[data.number, data.name, data.constituency_count || 0, data.list_count || 0]]);
   return createJSONResponse({ result: "success" });
 }
 
 function handleDeleteEntry(ss, sheetName, id) {
   const sheet = ss.getSheetByName(sheetName);
-  const ids = sheet.getRange(1, 1, sheet.getLastRow(), 1).getValues().flat();
-  const rowIdx = ids.indexOf(id.toString());
-  if (rowIdx === -1) throw new Error("Data Not Found");
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 1) throw new Error("Sheet is empty");
+  
+  let rowIdx = -1;
+  const idStr = String(id).trim();
+  if (idStr.startsWith("_ROW_")) {
+    rowIdx = parseInt(idStr.replace("_ROW_", "")) - 1;
+  } else {
+    const ids = sheet.getRange(1, 1, lastRow, 1).getValues().flat();
+    rowIdx = ids.findIndex(item => String(item).trim() === idStr);
+  }
+  
+  if (rowIdx === -1 || rowIdx >= lastRow) throw new Error("Data Not Found (ID: " + id + ")");
   sheet.deleteRow(rowIdx + 1);
   return createJSONResponse({ result: "success" });
 }
@@ -267,7 +311,7 @@ function ensureSheets(ss) {
   const config = [
     { name: SHEET_NAMES.VOTERS, head: ["id", "name", "region"] },
     { name: SHEET_NAMES.CANDIDATES, head: ["id", "number", "name", "region", "party"] },
-    { name: SHEET_NAMES.PARTIES, head: ["id", "number", "name", "list_count"] },
+    { name: SHEET_NAMES.PARTIES, head: ["id", "number", "name", "constituency_count", "list_count"] },
     { name: SHEET_NAMES.VOTES, head: ["timestamp", "voter", "region", "candidate", "party", "ip"] },
     { name: SHEET_NAMES.SETTINGS, head: ["key", "value"] }
   ];
