@@ -564,7 +564,7 @@ function renderVotesLogTable() {
 function exportToCSV() {
     const votes = globalData.votes || [];
     if (votes.length === 0) {
-        alert("ไม่มีข้อมูลให้ส่งออก");
+        Swal.fire({ icon: 'info', title: "ไม่มีข้อมูลให้ส่งออก", confirmButtonText: 'ตกลง' });
         return;
     }
 
@@ -692,9 +692,9 @@ async function saveSettings() {
         btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...`;
 
         await callAPI('UPDATE_SETTINGS', { startTime, endTime, electionMode });
-        alert("บันทึกการตั้งค่าเวลาเรียบร้อยแล้ว");
+        Swal.fire({ icon: 'success', title: "บันทึกการตั้งค่าเวลาเรียบร้อยแล้ว", confirmButtonText: 'ตกลง' });
     } catch (error) {
-        alert("เกิดข้อผิดพลาด: " + error.message);
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, confirmButtonText: 'ตกลง' });
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalText;
@@ -723,9 +723,9 @@ async function saveFormula() {
         };
 
         await callAPI('UPDATE_SETTINGS', updateData);
-        alert("บันทึกสูตรคำนวณเรียบร้อยแล้ว");
+        Swal.fire({ icon: 'success', title: "บันทึกสูตรคำนวณเรียบร้อยแล้ว", confirmButtonText: 'ตกลง' });
     } catch (error) {
-        alert("เกิดข้อผิดพลาด: " + error.message);
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, confirmButtonText: 'ตกลง' });
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalText;
@@ -749,13 +749,13 @@ async function callAPI(action, data = {}, id = null) {
             handleLocalStateUpdate(action, data, res.id || id);
             return true;
         } else {
-            alert("Error: " + res.message);
+            Swal.fire({ icon: 'error', title: 'Error', text: res.message, confirmButtonText: 'ตกลง' });
             reloadData(); // ถ้าพลาดให้ดึงใหม่ทั้งหมดเพื่อซิงค์
             return false;
         }
     } catch (e) {
         console.error("API Call Error:", e);
-        alert("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: " + e.message);
+        Swal.fire({ icon: 'error', title: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', text: e.message, confirmButtonText: 'ตกลง' });
         reloadData();
     }
     return false;
@@ -849,15 +849,26 @@ async function toggleRegionOpen(regionId, isOpen) {
         await callAPI('UPDATE_SETTINGS', { region_open_status: JSON.stringify(openStatus) });
         // UI updates automatically via callAPI -> handleLocalStateUpdate -> updateUI
     } catch (e) {
-        alert("ไม่สามารถบันทึกสถานะได้: " + e.message);
+        Swal.fire({ icon: 'error', title: 'ไม่สามารถบันทึกสถานะได้', text: e.message, confirmButtonText: 'ตกลง' });
         reloadData();
     }
 }
 
 function confirmDeleteRegionData(regionId, regionName) {
-    if (confirm(`⚠️ คุณแน่ใจหรือไม่ที่จะลบข้อมูลคะแนนทั้งหมดของ "${regionName}"?\n\nการลบนี้จะไม่สามารถย้อนกลับได้!`)) {
-        deleteRegionData(regionId);
-    }
+    Swal.fire({
+        title: `⚠️ คุณแน่ใจหรือไม่ที่จะลบข้อมูลคะแนนทั้งหมดของ "${regionName}"?`,
+        text: "การลบนี้จะไม่สามารถย้อนกลับได้!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'ลบข้อมูล',
+        cancelButtonText: 'ยกเลิก'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            deleteRegionData(regionId);
+        }
+    });
 }
 
 async function deleteRegionData(regionId) {
@@ -870,10 +881,10 @@ async function deleteRegionData(regionId) {
             // Local state update for DELETE_REGION_DATA is not handled in handleLocalStateUpdate yet
             globalData.votes = globalData.votes.filter(v => v.region !== regionId);
             updateUI();
-            alert("ลบข้อมูลคะแนนรายเขตเรียบร้อยแล้ว");
+            Swal.fire({ icon: 'success', title: "ลบข้อมูลคะแนนรายเขตเรียบร้อยแล้ว", confirmButtonText: 'ตกลง' });
         }
     } catch (e) {
-        alert("เกิดข้อผิดพลาด: " + e.message);
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message, confirmButtonText: 'ตกลง' });
     } finally {
         // No need to reload, local state updated
     }
@@ -944,7 +955,7 @@ function editEntry(type, id) {
             }, 200);
         } else {
             console.error("Party not found for ID:", searchId, globalData.parties);
-            alert("ไม่พบข้อมูลพรรคการเมือง ID: " + id);
+            Swal.fire({ icon: 'warning', title: 'ไม่พบข้อมูล', text: 'ไม่พบข้อมูลพรรคการเมือง ID: ' + id, confirmButtonText: 'ตกลง' });
         }
     }
 }
@@ -971,7 +982,7 @@ async function saveVoter() {
                 }
                 document.getElementById('newVoterName').value = '';
             } else {
-                alert("กรุณาระบุชื่อ-นามสกุล");
+                Swal.fire({ icon: 'warning', title: "กรุณาระบุชื่อ-นามสกุล", confirmButtonText: 'ตกลง' });
                 return;
             }
         } else {
@@ -981,7 +992,7 @@ async function saveVoter() {
                 await callAPI('BATCH_ADD_VOTERS', { names, region });
                 document.getElementById('bulkVoterNames').value = '';
             } else {
-                alert("กรุณาป้อนรายชื่ออย่างน้อย 1 รายการ");
+                Swal.fire({ icon: 'warning', title: "กรุณาป้อนรายชื่ออย่างน้อย 1 รายการ", confirmButtonText: 'ตกลง' });
                 btn.disabled = false;
                 btn.innerHTML = originalHTML;
                 return;
@@ -989,7 +1000,7 @@ async function saveVoter() {
         }
         bootstrap.Modal.getInstance(document.getElementById('addVoterModal')).hide();
     } catch (e) {
-        alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+        Swal.fire({ icon: 'error', title: "เกิดข้อผิดพลาดในการบันทึกข้อมูล", confirmButtonText: 'ตกลง' });
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalHTML;
@@ -1044,7 +1055,7 @@ async function saveCandidate() {
                 document.getElementById('newCandidateNumber').value = '';
                 bootstrap.Modal.getInstance(document.getElementById('addCandidateModal')).hide();
             } else {
-                alert("กรุณาระบุชื่อและเบอร์ผู้สมัคร");
+                Swal.fire({ icon: 'warning', title: "กรุณาระบุชื่อและเบอร์ผู้สมัคร", confirmButtonText: 'ตกลง' });
                 return;
             }
         } else {
@@ -1055,11 +1066,11 @@ async function saveCandidate() {
                 document.getElementById('bulkCandidateNames').value = '';
                 bootstrap.Modal.getInstance(document.getElementById('addCandidateModal')).hide();
             } else {
-                alert("กรุณาป้อนรายชื่ออย่างน้อย 1 รายการ");
+                Swal.fire({ icon: 'warning', title: "กรุณาป้อนรายชื่ออย่างน้อย 1 รายการ", confirmButtonText: 'ตกลง' });
             }
         }
     } catch (e) {
-        alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+        Swal.fire({ icon: 'error', title: "เกิดข้อผิดพลาดในการบันทึกข้อมูล", confirmButtonText: 'ตกลง' });
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalHTML;
@@ -1102,7 +1113,7 @@ async function saveParty() {
                 document.getElementById('newPartyConstituencyCount').value = '';
                 bootstrap.Modal.getInstance(document.getElementById('addPartyModal')).hide();
             } else {
-                alert("กรุณาระบุชื่อพรรคการเมือง");
+                Swal.fire({ icon: 'warning', title: "กรุณาระบุชื่อพรรคการเมือง", confirmButtonText: 'ตกลง' });
                 return;
             }
         } else {
@@ -1113,11 +1124,11 @@ async function saveParty() {
                 document.getElementById('bulkPartyNames').value = '';
                 bootstrap.Modal.getInstance(document.getElementById('addPartyModal')).hide();
             } else {
-                alert("กรุณาป้อนชื่อพรรคอย่างน้อย 1 รายการ");
+                Swal.fire({ icon: 'warning', title: "กรุณาป้อนชื่อพรรคอย่างน้อย 1 รายการ", confirmButtonText: 'ตกลง' });
             }
         }
     } catch (e) {
-        alert("เกิดข้อผิดพลาดในการบันทึกข้อมูลพรรค");
+        Swal.fire({ icon: 'error', title: "เกิดข้อผิดพลาดในการบันทึกข้อมูลพรรค", confirmButtonText: 'ตกลง' });
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalHTML;
@@ -1126,11 +1137,21 @@ async function saveParty() {
 
 async function deleteEntry(type, id) {
     if (!id) {
-        alert("ไม่พบรหัสข้อมููลที่ต้องการลบ");
+        Swal.fire({ icon: 'error', title: "ไม่พบรหัสข้อมููลที่ต้องการลบ", confirmButtonText: 'ตกลง' });
         return;
     }
 
-    if (confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?`)) {
+    const result = await Swal.fire({
+        title: 'คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'ลบข้อมูล',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (result.isConfirmed) {
         console.log(`Attempting to delete ${type} with ID:`, id);
         const success = await callAPI(`DELETE_${type}`, {}, id);
         // callAPI already handles local state update and UI refresh
@@ -1138,7 +1159,18 @@ async function deleteEntry(type, id) {
 }
 
 async function confirmResetVotes() {
-    if (confirm("ล้างคะแนนเลือกตั้งทั้งหมด? ไม่สามารถกู้คืนได้!")) {
+    const result = await Swal.fire({
+        title: "ล้างคะแนนเลือกตั้งทั้งหมด?",
+        text: "ไม่สามารถกู้คืนได้!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'ล้างข้อมูลทั้งหมด',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (result.isConfirmed) {
         await callAPI('RESET_VOTES');
     }
 }
