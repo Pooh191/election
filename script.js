@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const mode = (electionData.settings && electionData.settings.electionMode) ? electionData.settings.electionMode : 'both';
         if (mode === 'both' || mode === 'party') {
             if (!document.querySelector('input[name="political_party"]:checked')) {
-                alert("⚠️ โปรดเลือกพรรคการเมืองที่ท่านสนับสนุนก่อนส่งคะแนน");
+                Swal.fire({ icon: 'warning', title: "โปรดเลือกพรรคการเมืองที่ท่านสนับสนุนก่อนส่งคะแนน", confirmButtonText: 'ตกลง' });
                 return;
             }
         }
@@ -315,7 +315,7 @@ function createSelectionItem(type, id, name, groupName, number = null, partyName
 function startVoting() {
     const check = document.getElementById('consentCheck');
     if (!check.checked) {
-        alert("⚠️ กรุณายอมรับข้อตกลงความเป็นส่วนตัวก่อนเข้าสู่ระบบลงคะแนน");
+        Swal.fire({ icon: 'warning', title: "กรุณายอมรับข้อตกลงความเป็นส่วนตัวก่อนเข้าสู่ระบบลงคะแนน", confirmButtonText: 'ตกลง' });
         return;
     }
     showStep(1);
@@ -329,7 +329,7 @@ function nextStep(step) {
     if (step === 1) {
         const voterSelect = document.getElementById('voterSelect');
         if (!voterSelect.value) {
-            alert("⚠️ กรุณาเลือกชื่อของท่านก่อนดำเนินการต่อ");
+            Swal.fire({ icon: 'warning', title: "กรุณาเลือกชื่อของท่านก่อนดำเนินการต่อ", confirmButtonText: 'ตกลง' });
             return;
         }
         
@@ -337,7 +337,7 @@ function nextStep(step) {
         const region = voterSelect.value;
         const openStatus = (electionData.settings && electionData.settings.region_open_status) ? JSON.parse(electionData.settings.region_open_status) : {};
         if (openStatus[region] === false) {
-            alert("⏳ เขตพื้นที่ของท่านยังไม่เปิดให้ลงคะแนน หรือปิดหีบชั่วคราว");
+            Swal.fire({ icon: 'info', title: "เขตพื้นที่ของท่านยังไม่เปิดให้ลงคะแนน หรือปิดหีบชั่วคราว", confirmButtonText: 'ตกลง' });
             return;
         }
 
@@ -362,7 +362,7 @@ function nextStep(step) {
                 nextBtn.onclick = () => {
                     const form = document.getElementById('electionForm');
                     if (!document.querySelector('input[name="mp_regional"]:checked')) {
-                        alert("⚠️ โปรดเลือกผู้สมัคร ส.ส. 1 ท่านก่อน");
+                        Swal.fire({ icon: 'warning', title: "โปรดเลือกผู้สมัคร ส.ส. 1 ท่านก่อน", confirmButtonText: 'ตกลง' });
                         return;
                     }
                     form.requestSubmit(); // สั่ง submit ฟอร์มจากปุ่ม
@@ -374,7 +374,7 @@ function nextStep(step) {
         }
     } else if (step === 6) {
         if (!document.querySelector('input[name="mp_regional"]:checked')) {
-            alert("⚠️ โปรดเลือกผู้สมัคร ส.ส. 1 ท่านก่อน");
+            Swal.fire({ icon: 'warning', title: "โปรดเลือกผู้สมัคร ส.ส. 1 ท่านก่อน", confirmButtonText: 'ตกลง' });
             return;
         }
         showStep(6);
@@ -451,7 +451,7 @@ async function sendVoteData() {
         const result = await response.json();
         
         if (result.result === "error") {
-            alert(result.message); // แสดงข้อผิดพลาดจาก Server (เช่น IP ซ้ำ)
+            Swal.fire({ icon: 'error', title: 'ข้อผิดพลาด', text: result.message, confirmButtonText: 'ตกลง' }); // แสดงข้อผิดพลาดจาก Server (เช่น IP ซ้ำ)
             return false;
         }
         
@@ -495,5 +495,5 @@ function showSuccess() {
 
 function showToast(message, type) {
     // ใช้ alert ง่ายๆ แต่จัดแต่งข้อความเล็กน้อย (ความจริงควรใช้ Custom UI แต่รักษาความไว)
-    alert(`[${type === 'warning' ? 'แจ้งเตือน' : 'ข้อผิดพลาด'}] ${message}`);
+    Swal.fire({ icon: 'error', title: `[${type === 'warning' ? 'แจ้งเตือน' : 'ข้อผิดพลาด'}] ${message}`, confirmButtonText: 'ตกลง' });
 }
