@@ -417,3 +417,87 @@ body {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(20px);
 }
+
+/* 🎁 SweetAlert2 Premium Customization */
+div:where(.swal2-container) div:where(.swal2-popup) {
+    border-radius: 28px !important;
+    padding: 2.5rem 1.5rem 2rem 1.5rem !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+    font-family: 'Sarabun', 'Inter', sans-serif !important;
+    border: 1px solid rgba(0,0,0,0.03);
+    background: #ffffff !important;
+}
+
+div:where(.swal2-container) h2:where(.swal2-title) {
+    font-family: 'Sarabun', 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    font-size: 1.6rem !important;
+    padding-top: 1rem !important;
+}
+
+div:where(.swal2-container) div:where(.swal2-html-container) {
+    font-family: 'Sarabun', 'Inter', sans-serif !important;
+    color: #64748b !important;
+    font-weight: 500 !important;
+    line-height: 1.6 !important;
+    font-size: 1.05rem !important;
+    margin: 1rem 1.5rem 0.5rem !important;
+}
+
+div:where(.swal2-container) div:where(.swal2-actions) {
+    margin-top: 2rem !important;
+    gap: 1rem !important;
+}
+
+div:where(.swal2-container) button:where(.swal2-styled).swal2-confirm {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    border-radius: 18px !important;
+    padding: 14px 36px !important;
+    font-weight: 700 !important;
+    font-size: 1.1rem !important;
+    box-shadow: 0 8px 16px -4px rgba(16, 185, 129, 0.4) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border: none !important;
+    color: #ffffff !important;
+}
+
+div:where(.swal2-container) button:where(.swal2-styled).swal2-confirm:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 12px 20px -4px rgba(16, 185, 129, 0.5) !important;
+}
+
+div:where(.swal2-container) button:where(.swal2-styled).swal2-cancel {
+    background: transparent !important;
+    color: #64748b !important;
+    border: 2px solid #e2e8f0 !important;
+    border-radius: 18px !important;
+    padding: 12px 34px !important;
+    font-weight: 600 !important;
+    font-size: 1.1rem !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+div:where(.swal2-container) button:where(.swal2-styled).swal2-cancel:hover {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+}
+
+div:where(.swal2-container) div:where(.swal2-icon) {
+    border-width: 4px !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+    transform: scale(1.1);
+}
+
+/* Custom Warning Icon Colors (to match design system) */
+div:where(.swal2-container) div:where(.swal2-icon).swal2-warning {
+    border-color: #f59e0b !important;
+    color: #f59e0b !important;
+}
+
+/* Fix for animation focus */
+div:where(.swal2-container) button:where(.swal2-styled):focus {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3) !important;
+}
