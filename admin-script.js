@@ -337,7 +337,8 @@ function renderPartiesTable() {
 
     // Calculate Regional Winners (ส.ส. เขต)
     const regionWinnerSeats = {}; // party name -> seat count
-    const regions = ['reg1', 'reg2', 'reg3', 'reg4', 'reg5'];
+    const regions = [...new Set(filteredVotes.map(v => v.region).filter(Boolean))];
+    if (regions.length === 0) regions.push('reg1', 'reg2', 'reg3', 'reg4', 'reg5'); // fallback
     const candidates = globalData.candidates || [];
 
     regions.forEach(r => {
@@ -348,9 +349,10 @@ function renderPartiesTable() {
             // ค้นหาผู้ที่มีคะแนนสูงสุดในเขตนั้น
             const winnerName = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
             if (counts[winnerName] > 0) {
-                const cand = candidates.find(c => c.name === winnerName);
+                const cand = candidates.find(c => c.name && c.name.trim().toLowerCase() === winnerName.trim().toLowerCase());
                 if (cand && cand.party) {
-                    regionWinnerSeats[cand.party] = (regionWinnerSeats[cand.party] || 0) + 1;
+                    const pName = cand.party.trim();
+                    regionWinnerSeats[pName] = (regionWinnerSeats[pName] || 0) + 1;
                 }
             }
         }
@@ -401,7 +403,15 @@ function renderPartiesTable() {
         }
 
 
-        const regSeats = regionWinnerSeats[p.name] || 0;
+        const pNameTrimmed = p.name ? p.name.trim().toLowerCase() : "";
+        let regSeats = 0;
+        Object.keys(regionWinnerSeats).forEach(winnerParty => {
+            const wp = winnerParty.toLowerCase();
+            if (wp === pNameTrimmed || wp.includes(pNameTrimmed) || pNameTrimmed.includes(wp)) {
+                regSeats += regionWinnerSeats[winnerParty];
+                regionWinnerSeats[winnerParty] = 0; // prevent double counting
+            }
+        });
         const totalSeats = parseInt(regSeats) + (parseInt(seats) || 0);
 
         sumPartyVotes += party;
@@ -420,8 +430,7 @@ function renderPartiesTable() {
             <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
             <td class="text-center"><span class="fw-bold">${regSeats}</span></td>
             <td class="text-center">
-                <span class="fw-bold ${isCapped ? 'text-danger' : 'text-muted'}">${seats}</span>
-                ${isCapped ? `<i class="bi bi-exclamation-triangle-fill text-danger ms-1" title="จำกัดแค่ ${p_list_count} ตามที่ส่งจริง (จากเดิม ${originalSeats})"></i>` : ''}
+                <span class="fw-bold text-muted">${seats}</span>
             </td>
             <td class="text-center"><span class="fw-bold text-primary" style="font-size: 1.1rem;">${totalSeats}</span></td>
             <td class="text-end pe-4">
@@ -439,7 +448,7 @@ function renderPartiesTable() {
                 <td class="text-center"><span class="badge bg-light text-dark border px-3">${party.toLocaleString()}</span></td>
                 <td class="text-center"><span class="fw-bold text-muted">${regSeats}</span></td>
                 <td class="text-center">
-                    <span class="fw-bold ${isCapped ? 'text-danger' : 'text-muted'}">${seats}</span>
+                    <span class="fw-bold text-muted">${seats}</span>
                 </td>
                 <td class="text-center"><span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill fs-6">${totalSeats}</span></td>
             `;
@@ -658,13 +667,15 @@ function renderFullReport() {
 
     const winnerTable = document.getElementById('reportRegionalWinners');
     winnerTable.innerHTML = '';
-    ['reg1', 'reg2', 'reg3', 'reg4', 'reg5'].forEach(r => {
+    const reportRegions = [...new Set(votes.map(v => v.region).filter(Boolean))];
+    if (reportRegions.length === 0) reportRegions.push('reg1', 'reg2', 'reg3', 'reg4', 'reg5'); // fallback
+    reportRegions.forEach(r => {
         const cands = regionWinners[r] || {};
-        const topCand = Object.keys(cands).reduce((a, b) => cands[a] > cands[b] ? a : b, null);
+        const topCand = Object.keys(cands).length > 0 ? Object.keys(cands).reduce((a, b) => cands[a] > cands[b] ? a : b) : null;
         const winCount = topCand ? cands[topCand] : 0;
 
         // Find candidate party
-        const candData = globalData.candidates.find(c => c.name === topCand);
+        const candData = globalData.candidates.find(c => c.name && topCand && c.name.trim().toLowerCase() === topCand.trim().toLowerCase());
 
         const row = document.createElement('tr');
         row.innerHTML = `
